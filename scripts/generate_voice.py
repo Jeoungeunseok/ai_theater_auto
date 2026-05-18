@@ -11,11 +11,15 @@ async def generate_voice_over(script_path, output_dir):
     
     for i, scene in enumerate(data['scenes']):
         text = scene['narration']
-        # ko-KR-SunHiNeural 또는 ko-KR-InJoonNeural 추천
-        communicate = edge_tts.Communicate(text, "ko-KR-SunHiNeural")
         output_path = os.path.join(output_dir, f"scene_{i:02d}.mp3")
-        await communicate.save(output_path)
-        print(f"Generated voice: {output_path}")
+        try:
+            # ko-KR-SunHiNeural 또는 ko-KR-InJoonNeural 추천
+            communicate = edge_tts.Communicate(text, "ko-KR-SunHiNeural")
+            await communicate.save(output_path)
+            print(f"Generated voice: {output_path}")
+        except Exception as e:
+            print(f"[ERROR] scene_{i:02d} 보이스 생성 실패: {e}")
+            raise
 
 if __name__ == "__main__":
     script_file = "tmp/aitheater/script_v1.json"

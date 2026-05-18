@@ -1,5 +1,5 @@
-openai
-python-dotenv
-edge-tts
-requests
-aiohttp
+openai==1.45.0
+python-dotenv==1.0.1
+edge-tts==6.1.12
+requests==2.32.3
+aiohttp==3.10.5

@@ -37,6 +37,7 @@ def generate_short_script(topic):
 
 if __name__ == "__main__":
     script = generate_short_script("흥부전 Ep.01 - 제비가 가져온 보물")
+    os.makedirs("tmp/aitheater", exist_ok=True)
     with open("tmp/aitheater/script_v1.json", "w", encoding="utf-8") as f:
         json.dump(script, f, ensure_ascii=False, indent=2)
     print("Script generated at tmp/aitheater/script_v1.json")
