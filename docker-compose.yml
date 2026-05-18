@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    env_file:
+      - .env
+
+  worker:
+    build: ./worker
+    environment:
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
+    env_file:
+      - .env
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ai_theater}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai_theater}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_theater_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+volumes:
+  postgres_data:
