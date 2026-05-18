@@ -11,6 +11,23 @@ def _video_codec():
     return ["libx264", "-crf", "23", "-preset", "fast"]
 
 
+def _font_path() -> str:
+    """환경별 한글 폰트 경로 반환."""
+    if platform.system() == "Darwin":
+        candidates = [
+            "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+            "/Library/Fonts/Arial Unicode.ttf",
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                return path
+    # Linux(Docker): fonts-noto-cjk 설치 경로
+    linux_font = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+    if os.path.exists(linux_font):
+        return linux_font
+    return ""  # 폰트 못 찾으면 FFmpeg 기본값 사용
+
+
 def _escape_drawtext(text: str) -> str:
     """FFmpeg drawtext 필터에서 깨지는 문자 이스케이프."""
     return text.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
@@ -20,6 +37,8 @@ def render_scene(audio_path: str, background_path: str, caption: str, output_pat
     """단일 장면 렌더링 (배경 이미지 + 오디오 + 자막)."""
     codec_args = _video_codec()
     escaped = _escape_drawtext(caption)
+    font_path = _font_path()
+    font_arg = f":fontfile='{font_path}'" if font_path else ""
 
     command = [
         "ffmpeg", "-y",
@@ -30,7 +49,7 @@ def render_scene(audio_path: str, background_path: str, caption: str, output_pat
         "-vf", (
             "scale=1080:1920:force_original_aspect_ratio=increase,"
             "crop=1080:1920,"
-            f"drawtext=text='{escaped}'"
+            f"drawtext=text='{escaped}'{font_arg}"
             ":fontcolor=white:fontsize=64"
             ":x=(w-text_w)/2:y=(h-text_h)*0.8"
             ":box=1:boxcolor=black@0.5:boxborderw=10"

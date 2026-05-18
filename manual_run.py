@@ -27,8 +27,10 @@ async def main():
     print("--- 3. Fetching Background ---")
     bg_path = "storage/bg_pool/background.jpg"
     os.makedirs("storage/bg_pool", exist_ok=True)
-    fetch_pexels_image("traditional korean village", bg_path)
-    
+    if not fetch_pexels_image("traditional korean village", bg_path):
+        print("[ERROR] 배경 이미지 수집 실패. PEXELS_API_KEY를 확인하거나 storage/bg_pool/background.jpg를 직접 넣어주세요.")
+        return
+
     # 4. 영상 렌더링
     print("--- 4. Rendering Video ---")
     output_video = os.path.join(tmp_dir, "final_shorts.mp4")
