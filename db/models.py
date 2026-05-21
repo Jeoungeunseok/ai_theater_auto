@@ -36,6 +36,7 @@ class Episode(Base):
     video_path = Column(String)
     youtube_url = Column(String)
     youtube_video_id = Column(String)
+    choices = Column(Text)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 class Vote(Base):

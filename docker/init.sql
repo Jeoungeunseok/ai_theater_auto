@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     status job_status DEFAULT 'PENDING',
     current_step TEXT,
     topic TEXT NOT NULL,
+    video_path TEXT,
     youtube_id TEXT,
     retry_count INTEGER DEFAULT 0,
     error_log TEXT,
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     video_path TEXT,
     youtube_url TEXT,
     youtube_video_id TEXT,
+    choices TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -51,8 +53,9 @@ CREATE TABLE IF NOT EXISTS votes (
     episode_id INTEGER REFERENCES episodes(id),
     choice_key TEXT NOT NULL,
     count INTEGER DEFAULT 0,
-    snapshot_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    snapshot_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (episode_id, choice_key)
 );
 
-
 CREATE INDEX IF NOT EXISTS idx_episodes_series ON episodes(series_name);
+CREATE INDEX IF NOT EXISTS idx_votes_episode_choice ON votes(episode_id, choice_key);
