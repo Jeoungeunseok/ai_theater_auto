@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     episode_no INTEGER NOT NULL,
     job_id UUID REFERENCES jobs(id),
     title TEXT,
+    video_path TEXT,
     youtube_id TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
