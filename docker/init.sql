@@ -40,8 +40,19 @@ CREATE TABLE IF NOT EXISTS episodes (
     job_id UUID REFERENCES jobs(id),
     title TEXT,
     video_path TEXT,
-    youtube_id TEXT,
+    youtube_url TEXT,
+    youtube_video_id TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Phase 5: 투표 시스템 테이블
+CREATE TABLE IF NOT EXISTS votes (
+    id SERIAL PRIMARY KEY,
+    episode_id INTEGER REFERENCES episodes(id),
+    choice_key TEXT NOT NULL,
+    count INTEGER DEFAULT 0,
+    snapshot_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 
 CREATE INDEX IF NOT EXISTS idx_episodes_series ON episodes(series_name);

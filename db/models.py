@@ -1,18 +1,15 @@
 import enum
 import uuid
-from sqlalchemy import Column, String, Integer, Text, Enum as SQLEnum
+import datetime
+from sqlalchemy import Column, String, Integer, Text, Enum as SQLEnum, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
-from sqlalchemy import DateTime
-from database import Base
-
+from .database import Base
 
 class JobStatus(enum.Enum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
-
 
 class Job(Base):
     __tablename__ = "jobs"
@@ -21,12 +18,12 @@ class Job(Base):
     status = Column(SQLEnum(JobStatus), default=JobStatus.PENDING)
     current_step = Column(String)
     topic = Column(Text, nullable=False)
+    video_path = Column(String)
     youtube_id = Column(String)
     retry_count = Column(Integer, default=0)
     error_log = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 class Episode(Base):
     __tablename__ = "episodes"
@@ -37,5 +34,15 @@ class Episode(Base):
     job_id = Column(UUID(as_uuid=True))
     title = Column(String)
     video_path = Column(String)
-    youtube_id = Column(String)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    youtube_url = Column(String)
+    youtube_video_id = Column(String)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class Vote(Base):
+    __tablename__ = "votes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    episode_id = Column(Integer, ForeignKey("episodes.id"))
+    choice_key = Column(String, nullable=False)
+    count = Column(Integer, default=0)
+    snapshot_at = Column(DateTime, default=datetime.datetime.utcnow)

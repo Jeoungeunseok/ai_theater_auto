@@ -1,6 +1,6 @@
 import os
 from db.database import SessionLocal
-from db.models import Job, JobStatus
+from db.models import Job, JobStatus, Episode
 from api.youtube import upload_to_youtube
 
 def upload_video_task(job_id: str):
@@ -29,7 +29,19 @@ def upload_video_task(job_id: str):
             db_job.youtube_id = youtube_id
             db_job.status = JobStatus.COMPLETED
             db_job.current_step = "uploaded"
-            print(f"[{job_id}] Upload successful: {youtube_id}")
+            
+            # Episode 레코드 생성
+            new_episode = Episode(
+                series_name="Default", # 실제로는 job에서 가져와야 함
+                episode_no=1,        # 실제로는 카운팅 필요
+                job_id=db_job.id,
+                title=video_title,
+                video_path=db_job.video_path,
+                youtube_url=f"https://youtu.be/{youtube_id}",
+                youtube_video_id=youtube_id
+            )
+            db.add(new_episode)
+            print(f"[{job_id}] Upload successful & Episode created: {youtube_id}")
         else:
             db_job.status = JobStatus.FAILED
             db_job.error_log = "YouTube upload failed"
