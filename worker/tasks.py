@@ -6,7 +6,7 @@ from scripts.generate_voice import generate_voice_over
 from scripts.fetch_assets import fetch_pexels_image
 from scripts.render_short import render_full_short
 
-def create_video_task(job_id: str, topic: str):
+def create_video_task(job_id: str, topic: str, series_name: str = "folktale"):
     """
     RQ 워커가 실행할 실제 영상 제작 태스크입니다.
     """
@@ -14,9 +14,9 @@ def create_video_task(job_id: str, topic: str):
     os.makedirs(tmp_dir, exist_ok=True)
     
     try:
-        # 1. 대본 생성
-        print(f"[{job_id}] Step 1: Generating Script")
-        script = generate_short_script(topic)
+        # 1. 대본 생성 (series_name 전달)
+        print(f"[{job_id}] Step 1: Generating Script for {series_name}")
+        script = generate_short_script(topic, series_name=series_name)
         script_path = os.path.join(tmp_dir, "script.json")
         with open(script_path, "w", encoding="utf-8") as f:
             json.dump(script, f, ensure_ascii=False, indent=2)
