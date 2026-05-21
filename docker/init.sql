@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     status job_status DEFAULT 'PENDING',
     current_step TEXT,
     topic TEXT NOT NULL,
+    series_name TEXT,
+    choices TEXT,
     video_path TEXT,
     youtube_id TEXT,
     retry_count INTEGER DEFAULT 0,

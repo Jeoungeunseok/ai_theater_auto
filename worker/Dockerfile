@@ -13,5 +13,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY scripts/ scripts/
 COPY worker/ worker/
 COPY api/ api/
+COPY prompts/ prompts/
 
 CMD ["rq", "worker", "render_queue", "upload_queue", "--url", "redis://redis:6379/0"]

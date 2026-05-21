@@ -18,6 +18,8 @@ class Job(Base):
     status = Column(SQLEnum(JobStatus), default=JobStatus.PENDING)
     current_step = Column(String)
     topic = Column(Text, nullable=False)
+    series_name = Column(String)
+    choices = Column(Text)
     video_path = Column(String)
     youtube_id = Column(String)
     retry_count = Column(Integer, default=0)

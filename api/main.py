@@ -48,8 +48,7 @@ async def create_job(job_data: JobCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_job)
     
-    # 렌더링 큐에 작업 추가 (절대 경로 사용)
-    render_queue.enqueue('worker.tasks.create_video_task', str(job_id), job_data.topic, job_id=str(job_id))
+    render_queue.enqueue('worker.tasks.create_video_task', str(job_id), job_data.topic, job_data.series_name)
     
     return {"job_id": str(job_id), "status": "PENDING"}
 
@@ -85,8 +84,13 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
         
     if action_id == "approve_video":
         db_job.current_step = "approved"
-        # 업로드 큐에 작업 추가
-        upload_queue.enqueue('worker.upload_tasks.upload_video_task', job_id)
+        choices = json.loads(db_job.choices) if db_job.choices else None
+        upload_queue.enqueue(
+            'worker.upload_tasks.upload_video_task',
+            job_id,
+            db_job.series_name or "Default",
+            choices,
+        )
     elif action_id == "reject_video":
         db_job.status = JobStatus.FAILED
         db_job.error_log = "User rejected the video via Slack."

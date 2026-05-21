@@ -8,3 +8,4 @@ httpx==0.27.2
 google-api-python-client==2.143.0
 google-auth-oauthlib==1.2.1
 slack-sdk==3.31.0
+pyyaml==6.0.2
