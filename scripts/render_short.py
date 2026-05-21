@@ -16,29 +16,31 @@ def _font_path() -> str:
     if platform.system() == "Darwin":
         candidates = [
             "/System/Library/Fonts/AppleSDGothicNeo.ttc",
-            "/Library/Fonts/Arial Unicode.ttf",
+            "/System/Library/Fonts/Supplemental/AppleSDGothicNeo.ttc",
+            os.path.expanduser("~/Library/Fonts/NanumGothic.ttf"),
+            "/Library/Fonts/NanumGothic.ttf",
         ]
         for path in candidates:
             if os.path.exists(path):
                 return path
-    # Linux(Docker): fonts-noto-cjk 설치 경로
     linux_font = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
     if os.path.exists(linux_font):
         return linux_font
-    return ""  # 폰트 못 찾으면 FFmpeg 기본값 사용
-
-
-def _escape_drawtext(text: str) -> str:
-    """FFmpeg drawtext 필터에서 깨지는 문자 이스케이프."""
-    return text.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
+    return ""
 
 
 def render_scene(audio_path: str, background_path: str, caption: str, output_path: str):
-    """단일 장면 렌더링 (배경 이미지 + 오디오 + 자막)."""
+    """단일 장면 렌더링 (배경 이미지 + 오디오 + 자막).
+
+    한글 자막은 text= 대신 textfile= 방식으로 처리하여 인코딩 깨짐 방지.
+    """
     codec_args = _video_codec()
-    escaped = _escape_drawtext(caption)
     font_path = _font_path()
     font_arg = f":fontfile='{font_path}'" if font_path else ""
+
+    caption_file = output_path.replace(".mp4", "_cap.txt")
+    with open(caption_file, "w", encoding="utf-8") as f:
+        f.write(caption)
 
     command = [
         "ffmpeg", "-y",
@@ -49,7 +51,7 @@ def render_scene(audio_path: str, background_path: str, caption: str, output_pat
         "-vf", (
             "scale=1080:1920:force_original_aspect_ratio=increase,"
             "crop=1080:1920,"
-            f"drawtext=text='{escaped}'{font_arg}"
+            f"drawtext=textfile='{caption_file}'{font_arg}"
             ":fontcolor=white:fontsize=64"
             ":x=(w-text_w)/2:y=(h-text_h)*0.8"
             ":box=1:boxcolor=black@0.5:boxborderw=10"
@@ -59,9 +61,13 @@ def render_scene(audio_path: str, background_path: str, caption: str, output_pat
         output_path,
     ]
 
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"FFmpeg failed:\n{result.stderr}")
+    try:
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"FFmpeg failed:\n{result.stderr}")
+    finally:
+        if os.path.exists(caption_file):
+            os.remove(caption_file)
 
 
 def concat_scenes(scene_paths: list[str], output_path: str):

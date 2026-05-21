@@ -15,6 +15,7 @@ app = FastAPI(title="AI Theater API")
 
 redis_conn = Redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
 q = Queue("render_queue", connection=redis_conn)
+upload_q = Queue("upload_queue", connection=redis_conn)
 
 
 class JobCreate(BaseModel):
@@ -88,7 +89,7 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
     if action_id == "approve_video":
         db_job.current_step = "approved"
         # Phase 4: YouTube 업로드 큐로 전달
-        q.enqueue('worker.upload_tasks.upload_video_task', job_id)
+        upload_q.enqueue("worker.upload_tasks.upload_video_task", job_id)
     elif action_id == "reject_video":
         db_job.status = JobStatus.FAILED
         db_job.error_log = "User rejected the video via Slack."
