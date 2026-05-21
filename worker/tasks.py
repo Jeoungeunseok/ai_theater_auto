@@ -5,6 +5,7 @@ from scripts.generate_script import generate_short_script
 from scripts.generate_voice import generate_voice_over
 from scripts.fetch_assets import fetch_pexels_image
 from scripts.render_short import render_full_short
+from worker.slack_notifier import send_approval_message
 
 
 def create_video_task(job_id: str, topic: str):
@@ -36,13 +37,14 @@ def create_video_task(job_id: str, topic: str):
         output_video = os.path.join(tmp_dir, "final.mp4")
         render_full_short(script_path, voice_dir, bg_path, output_video)
 
-        # 5. Slack으로 승인 요청 전송 (추가됨)
-        from api.slack import send_approval_message
-        send_approval_message(job_id, topic, output_video)
+        # 5. Slack 승인 요청 — 실패해도 태스크는 성공으로 처리
+        try:
+            send_approval_message(job_id, topic, output_video)
+        except Exception as slack_err:
+            print(f"[{job_id}] Slack 알림 실패 (무시): {slack_err}")
 
-        print(f"[{job_id}] Task Completed Successfully: {output_video}")
+        print(f"[{job_id}] Task Completed: {output_video}")
         return {"status": "COMPLETED", "video_path": output_video}
-
 
     except Exception as e:
         print(f"[{job_id}] Task Failed: {e}")

@@ -6,3 +6,5 @@ psycopg2-binary==2.9.9
 rq==1.16.2
 redis==5.0.8
 python-dotenv==1.0.1
+slack-sdk==3.31.0
+python-multipart==0.0.9
