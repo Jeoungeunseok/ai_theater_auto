@@ -36,8 +36,13 @@ def create_video_task(job_id: str, topic: str):
         output_video = os.path.join(tmp_dir, "final.mp4")
         render_full_short(script_path, voice_dir, bg_path, output_video)
 
-        print(f"[{job_id}] Task Completed: {output_video}")
+        # 5. Slack으로 승인 요청 전송 (추가됨)
+        from api.slack import send_approval_message
+        send_approval_message(job_id, topic, output_video)
+
+        print(f"[{job_id}] Task Completed Successfully: {output_video}")
         return {"status": "COMPLETED", "video_path": output_video}
+
 
     except Exception as e:
         print(f"[{job_id}] Task Failed: {e}")
