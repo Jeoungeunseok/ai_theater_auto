@@ -1,0 +1,48 @@
+import os
+from sqlalchemy.orm import Session
+from api.database import SessionLocal
+from api.models import Job, JobStatus
+from api.youtube import upload_to_youtube
+
+def upload_video_task(job_id: str):
+    """
+    승인된 영상을 YouTube에 업로드하는 워커 태스크입니다.
+    """
+    db = SessionLocal()
+    try:
+        db_job = db.query(Job).filter(Job.id == job_id).first()
+        if not db_job:
+            print(f"[{job_id}] Job not found for upload")
+            return
+            
+        print(f"[{job_id}] Starting YouTube upload...")
+        
+        # 1. YouTube 업로드 실행
+        video_title = f"{db_job.topic} #Shorts"
+        video_desc = f"AI Theater - {db_job.topic}\n#AI #Shorts #Story"
+        
+        youtube_id = upload_to_youtube(
+            db_job.video_path,
+            video_title,
+            video_desc
+        )
+        
+        if youtube_id:
+            # 2. DB 업데이트
+            db_job.youtube_id = youtube_id
+            db_job.status = JobStatus.COMPLETED
+            db_job.current_step = "uploaded"
+            print(f"[{job_id}] Upload successful: {youtube_id}")
+        else:
+            db_job.status = JobStatus.FAILED
+            db_job.error_log = "YouTube upload failed (Client error)"
+            
+        db.commit()
+        
+    except Exception as e:
+        print(f"[{job_id}] Upload Task Failed: {str(e)}")
+        db_job.status = JobStatus.FAILED
+        db_job.error_log = f"Upload Error: {str(e)}"
+        db.commit()
+    finally:
+        db.close()
