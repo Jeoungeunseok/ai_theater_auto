@@ -20,7 +20,9 @@ services:
       - .env
 
   worker:
-    build: ./worker
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
     environment:
       - DB_HOST=postgres
       - REDIS_HOST=redis
