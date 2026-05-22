@@ -5,7 +5,7 @@ from db.database import SessionLocal
 from db.models import Job, JobStatus
 from scripts.generate_script import generate_short_script
 from scripts.generate_voice import generate_voice_over
-from scripts.fetch_assets import fetch_pexels_image
+from scripts.generate_image import generate_images_for_script
 from scripts.render_short import render_full_short
 from api.slack import send_approval_message
 
@@ -44,22 +44,28 @@ def create_video_task(job_id: str, topic: str, series_name: str = "folktale"):
         voice_dir = os.path.join(tmp_dir, "voice")
         asyncio.run(generate_voice_over(script_path, voice_dir))
 
-        # 3. 배경 이미지 수집
-        print(f"[{job_id}] Step 3: Fetching Background")
-        db_job.current_step = "fetching_assets"
+        # 3. DALL-E 이미지 생성 (장면별)
+        print(f"[{job_id}] Step 3: Generating DALL-E Images")
+        db_job.current_step = "generating_images"
         db.commit()
-        bg_path = os.path.join(tmp_dir, "background.jpg")
-        fetch_pexels_image("cinematic landscape", bg_path)
+        image_dir = os.path.join(tmp_dir, "images")
+        # 시리즈별로 스타일을 다르게 지정할 수 있습니다.
+        style = "Korean folk tale illustration style, 2D, vibrant colors, cinematic lighting"
+        if series_name == "history_if":
+            style = "Historical oil painting style, realistic, dramatic lighting, detailed"
+        
+        generate_images_for_script(script, image_dir, style=style)
 
         # 4. 영상 렌더링
         print(f"[{job_id}] Step 4: Rendering Video")
         db_job.current_step = "rendering"
         db.commit()
         output_video = os.path.join(tmp_dir, "final.mp4")
-        render_full_short(script_path, voice_dir, bg_path, output_video)
+        render_full_short(script_path, voice_dir, image_dir, output_video)
 
         # choices 추출 후 job에 저장
         choices = script.get("choices")
+        db_job.status = JobStatus.COMPLETED
         db_job.video_path = output_video
         db_job.choices = json.dumps(choices, ensure_ascii=False) if choices else None
         db_job.current_step = "pending_approval"

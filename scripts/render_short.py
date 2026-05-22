@@ -91,8 +91,8 @@ def concat_scenes(scene_paths: list[str], output_path: str):
         raise RuntimeError(f"FFmpeg concat failed:\n{result.stderr}")
 
 
-def render_full_short(script_path: str, voice_dir: str, background_path: str, output_path: str):
-    """스크립트 JSON + 보이스 파일들 + 배경 → 최종 쇼츠 mp4 1편 생성."""
+def render_full_short(script_path: str, voice_dir: str, image_dir: str, output_path: str):
+    """스크립트 JSON + 보이스 파일들 + 각 장면별 이미지 → 최종 쇼츠 mp4 1편 생성."""
     with open(script_path, encoding="utf-8") as f:
         data = json.load(f)
 
@@ -102,8 +102,15 @@ def render_full_short(script_path: str, voice_dir: str, background_path: str, ou
     scene_paths = []
     for i, scene in enumerate(data["scenes"]):
         audio = os.path.join(voice_dir, f"scene_{i:02d}.mp3")
+        # 각 장면에 맞는 이미지 경로 (scene_00.png, scene_01.png ...)
+        bg_image = os.path.join(image_dir, f"scene_{i:02d}.png")
+        
+        # 만약 해당 이미지가 없으면 기본 이미지나 첫 번째 이미지 사용 (예외 처리)
+        if not os.path.exists(bg_image):
+            bg_image = os.path.join(image_dir, "scene_00.png")
+
         scene_out = os.path.join(tmp_dir, f"scene_{i:02d}.mp4")
-        render_scene(audio, background_path, scene["caption"], scene_out)
+        render_scene(audio, bg_image, scene["caption"], scene_out)
         scene_paths.append(scene_out)
         print(f"  렌더링 완료: {scene_out}")
 
@@ -115,6 +122,6 @@ if __name__ == "__main__":
     render_full_short(
         script_path="tmp/aitheater/script_v1.json",
         voice_dir="tmp/aitheater/voice",
-        background_path="storage/bg_pool/background.jpg",
+        image_dir="tmp/aitheater/images",
         output_path="tmp/aitheater/final.mp4",
     )
