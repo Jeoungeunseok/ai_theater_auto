@@ -34,7 +34,11 @@ async def main():
     generate_images_for_script(
         script,
         image_dir,
-        style="Korean folk tale illustration style, 2D, vibrant colors, cinematic lighting",
+        style=(
+            "The main character MUST be 팡이(Pangi), the personified Wi-Fi character shown in the reference images. "
+            "Do NOT create new human characters. Use only 팡이 for all roles. "
+            "Korean folk tale 2D illustration, vibrant colors, cinematic lighting."
+        ),
         reference_image_paths=reference_image_paths,
     )
 

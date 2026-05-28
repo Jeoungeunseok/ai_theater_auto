@@ -51,8 +51,16 @@ def create_video_task(job_id: str, topic: str, series_name: str = "folktale"):
         image_dir = os.path.join(tmp_dir, "images")
 
         SERIES_STYLES = {
-            "folktale": "Korean folk tale illustration style, 2D, vibrant colors, cinematic lighting",
-            "history_if": "Historical oil painting style, realistic, dramatic lighting, detailed",
+            "folktale": (
+                "The main character MUST be 팡이(Pangi), the personified Wi-Fi character shown in the reference images. "
+                "Do NOT create new human characters. Use only 팡이 for all roles. "
+                "Korean folk tale 2D illustration, vibrant colors, cinematic lighting."
+            ),
+            "history_if": (
+                "The main character MUST be 팡이(Pangi), the personified Wi-Fi character shown in the reference images. "
+                "Do NOT create new human characters. Use only 팡이 for all roles. "
+                "Historical scene, dramatic lighting, detailed background."
+            ),
         }
         SERIES_REFERENCE_IMAGES = {
             "folktale": [
