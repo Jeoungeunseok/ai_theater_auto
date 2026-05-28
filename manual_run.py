@@ -27,12 +27,15 @@ async def main():
     # 3. 장면별 이미지 생성 (gpt-image-2)
     print("--- 3. Generating Images ---")
     image_dir = os.path.join(tmp_dir, "images")
-    reference_image_path = f"storage/bg_pool/{series_name}_concept.webp"
+    reference_image_paths = [
+        f"storage/bg_pool/{series_name}_concept.png",
+        f"storage/bg_pool/{series_name}_expressions.png",
+    ]
     generate_images_for_script(
         script,
         image_dir,
         style="Korean folk tale illustration style, 2D, vibrant colors, cinematic lighting",
-        reference_image_path=reference_image_path,
+        reference_image_paths=reference_image_paths,
     )
 
     # 4. 영상 렌더링

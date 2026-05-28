@@ -55,13 +55,19 @@ def create_video_task(job_id: str, topic: str, series_name: str = "folktale"):
             "history_if": "Historical oil painting style, realistic, dramatic lighting, detailed",
         }
         SERIES_REFERENCE_IMAGES = {
-            "folktale": "storage/bg_pool/folktale_concept.webp",
-            "history_if": "storage/bg_pool/history_if_concept.webp",
+            "folktale": [
+                "storage/bg_pool/folktale_concept.png",
+                "storage/bg_pool/folktale_expressions.png",
+            ],
+            "history_if": [
+                "storage/bg_pool/history_if_concept.png",
+                "storage/bg_pool/history_if_expressions.png",
+            ],
         }
         style = SERIES_STYLES.get(series_name, SERIES_STYLES["folktale"])
-        reference_image_path = SERIES_REFERENCE_IMAGES.get(series_name)
+        reference_image_paths = SERIES_REFERENCE_IMAGES.get(series_name, [])
 
-        generate_images_for_script(script, image_dir, style=style, reference_image_path=reference_image_path)
+        generate_images_for_script(script, image_dir, style=style, reference_image_paths=reference_image_paths)
 
         # 4. 영상 렌더링
         print(f"[{job_id}] Step 4: Rendering Video")

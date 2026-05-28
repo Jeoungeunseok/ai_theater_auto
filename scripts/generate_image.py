@@ -8,24 +8,29 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 IMAGE_QUALITY = os.getenv("IMAGE_QUALITY", "medium")
 
-def generate_scene_image(prompt, output_path, style="digital art, high quality, cinematic lighting", reference_image_path=None):
+def generate_scene_image(prompt, output_path, style="digital art, high quality, cinematic lighting", reference_image_paths=None):
     """
     gpt-image-2를 사용하여 특정 장면의 이미지를 생성합니다.
-    reference_image_path가 있으면 캐릭터 일관성 유지에 활용됩니다.
+    reference_image_paths: 컨셉아트, 표정묘사 등 레퍼런스 이미지 경로 리스트 (최대 16장)
     """
     full_prompt = f"{prompt}. Style: {style}."
+    valid_paths = [p for p in (reference_image_paths or []) if p and os.path.exists(p)]
 
     try:
-        if reference_image_path and os.path.exists(reference_image_path):
-            with open(reference_image_path, "rb") as img_file:
+        if valid_paths:
+            file_handles = [open(p, "rb") for p in valid_paths]
+            try:
                 response = client.images.edit(
                     model="gpt-image-2",
-                    image=img_file,
+                    image=file_handles if len(file_handles) > 1 else file_handles[0],
                     prompt=full_prompt,
                     size="1024x1536",
                     response_format="b64_json",
                     n=1
                 )
+            finally:
+                for f in file_handles:
+                    f.close()
         else:
             response = client.images.generate(
                 model="gpt-image-2",
@@ -46,7 +51,7 @@ def generate_scene_image(prompt, output_path, style="digital art, high quality, 
         return False
 
 
-def generate_images_for_script(script_data, output_dir, style="Korean folk tale illustration style, 2D, vibrant colors", reference_image_path=None):
+def generate_images_for_script(script_data, output_dir, style="Korean folk tale illustration style, 2D, vibrant colors", reference_image_paths=None):
     """
     대본 전체의 각 장면에 맞는 이미지를 생성합니다.
     """
@@ -56,6 +61,6 @@ def generate_images_for_script(script_data, output_dir, style="Korean folk tale 
         image_path = os.path.join(output_dir, f"scene_{i:02d}.png")
         prompt = scene["narration"]
         print(f"Generating image for Scene {i}...")
-        success = generate_scene_image(prompt, image_path, style=style, reference_image_path=reference_image_path)
+        success = generate_scene_image(prompt, image_path, style=style, reference_image_paths=reference_image_paths)
         if not success:
             raise RuntimeError(f"Scene {i} 이미지 생성 실패: {prompt[:50]}")
