@@ -35,8 +35,9 @@ async def main():
         script,
         image_dir,
         style=(
-            "The main character MUST be 팡이(Pangi), the personified Wi-Fi character shown in the reference images. "
-            "Do NOT create new human characters. Use only 팡이 for all roles. "
+            "All characters MUST be based on 팡이(Pangi), the personified Wi-Fi character shown in the reference images. "
+            "Use the 팡이 base design for every character. "
+            "If a character is an animal, ADD that animal's features (wings, beak, ears, tail, stripes, etc.) onto the 팡이 body — do NOT draw a realistic animal. "
             "Korean folk tale 2D illustration, vibrant colors, cinematic lighting."
         ),
         reference_image_paths=reference_image_paths,

@@ -57,8 +57,12 @@ def generate_images_for_script(script_data, output_dir, style="Korean folk tale 
 
     for i, scene in enumerate(script_data["scenes"]):
         image_path = os.path.join(output_dir, f"scene_{i:02d}.png")
-        prompt = scene["narration"]
-        print(f"Generating image for Scene {i}...")
+        # scene_description 우선, 없으면 구버전 narration 폴백
+        scene_desc = scene.get("scene_description") or scene.get("narration", "")
+        emotion = scene.get("emotion", "")
+        character = scene.get("character", "")
+        prompt = f"{scene_desc} Character: {character}. Emotion: {emotion}." if emotion else scene_desc
+        print(f"Generating image for Scene {i} [{character} / {emotion}]...")
         success = generate_scene_image(prompt, image_path, style=style, reference_image_paths=reference_image_paths)
         if not success:
             raise RuntimeError(f"Scene {i} 이미지 생성 실패: {prompt[:50]}")

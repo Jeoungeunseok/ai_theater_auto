@@ -52,13 +52,15 @@ def create_video_task(job_id: str, topic: str, series_name: str = "folktale"):
 
         SERIES_STYLES = {
             "folktale": (
-                "The main character MUST be 팡이(Pangi), the personified Wi-Fi character shown in the reference images. "
-                "Do NOT create new human characters. Use only 팡이 for all roles. "
+                "All characters MUST be based on 팡이(Pangi), the personified Wi-Fi character shown in the reference images. "
+                "Use the 팡이 base design for every character. "
+                "If a character is an animal, ADD that animal's features (wings, beak, ears, tail, stripes, etc.) onto the 팡이 body — do NOT draw a realistic animal. "
                 "Korean folk tale 2D illustration, vibrant colors, cinematic lighting."
             ),
             "history_if": (
-                "The main character MUST be 팡이(Pangi), the personified Wi-Fi character shown in the reference images. "
-                "Do NOT create new human characters. Use only 팡이 for all roles. "
+                "All characters MUST be based on 팡이(Pangi), the personified Wi-Fi character shown in the reference images. "
+                "Use the 팡이 base design for every character. "
+                "If a character is an animal, ADD that animal's features onto the 팡이 body — do NOT draw a realistic animal. "
                 "Historical scene, dramatic lighting, detailed background."
             ),
         }
