@@ -23,6 +23,7 @@ def generate_scene_image(prompt, output_path, style="digital art, high quality, 
                     image=img_file,
                     prompt=full_prompt,
                     size="1024x1536",
+                    response_format="b64_json",
                     n=1
                 )
         else:
@@ -31,6 +32,7 @@ def generate_scene_image(prompt, output_path, style="digital art, high quality, 
                 prompt=full_prompt,
                 size="1024x1536",
                 quality=IMAGE_QUALITY,
+                response_format="b64_json",
                 n=1
             )
 
