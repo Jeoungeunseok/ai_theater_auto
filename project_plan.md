@@ -68,7 +68,9 @@ postgres:   memory: 1G
 > 자동화 이전에 **파이프라인이 만드는 결과물 품질부터 확정**
 - [ ] OpenAI로 흥부전 1편 스크립트 생성 (프롬프트 v1 확정)
 - [ ] Edge-TTS로 보이스 생성 (한국어 화자 후보 비교: ko-KR-SunHi/InJoon 등)
-- [ ] 배경 소스 풀: Pexels/Pixabay API + 로컬 캐시 폴더 (`/storage/bg_pool/`)
+- [ ] 장면 이미지: **gpt-image-2** (세로형 1024×1536, medium 품질)
+  - 시리즈 컨셉아트를 `storage/bg_pool/<series>_concept.webp`에 두면 레퍼런스 이미지로 자동 활용
+  - 품질/비용 조절: `.env`에 `IMAGE_QUALITY=low|medium|high` 설정
 - [ ] FFmpeg `drawtext`로 자막 합성 스크립트 (`render_short.py`) — **이게 코어**
 - [ ] **수동 1편 완성** → 채널에 업로드해보고 톤·길이·자막 가독성 확정
 
@@ -115,12 +117,14 @@ postgres:   memory: 1G
 | 항목 | 일일 상한 | 월 예상 (쇼츠 30편 기준) |
 | --- | --- | --- |
 | OpenAI (스크립트 GPT-4o-mini) | $1 | ~$15 |
+| OpenAI (이미지 gpt-image-2 medium, 6장/편) | $1 | ~$9.5 ($0.053 × 6 × 30) |
 | Edge-TTS | 무료 | $0 |
-| Pexels/Pixabay | 무료 | $0 |
 | YouTube API | 쿼터 10,000 unit/day | $0 |
-| **합계** | — | **~$15–20** |
+| **합계** | — | **~$25–30** |
 
-→ 이 단계까지는 Replicate/이미지 생성 API는 **보류**. 배경 영상 풀로 충분.
+> **이미지 품질 조절:** `.env`의 `IMAGE_QUALITY=low/medium/high`로 비용 조절 가능.
+> low 사용 시 이미지 비용 ~$1.1/월 (전체 ~$16–20).
+> DALL-E 3는 2026-05-12부로 API 종료됨.
 
 ### 자동 차단 로직
 - `daily_cost.py` 워커가 매일 자정 OpenAI usage API 호출 → 임계치 초과 시 `jobs` 큐 일시 정지

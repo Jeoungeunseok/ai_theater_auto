@@ -44,17 +44,24 @@ def create_video_task(job_id: str, topic: str, series_name: str = "folktale"):
         voice_dir = os.path.join(tmp_dir, "voice")
         asyncio.run(generate_voice_over(script_path, voice_dir))
 
-        # 3. DALL-E 이미지 생성 (장면별)
-        print(f"[{job_id}] Step 3: Generating DALL-E Images")
+        # 3. gpt-image-2 이미지 생성 (장면별)
+        print(f"[{job_id}] Step 3: Generating gpt-image-2 Images")
         db_job.current_step = "generating_images"
         db.commit()
         image_dir = os.path.join(tmp_dir, "images")
-        # 시리즈별로 스타일을 다르게 지정할 수 있습니다.
-        style = "Korean folk tale illustration style, 2D, vibrant colors, cinematic lighting"
-        if series_name == "history_if":
-            style = "Historical oil painting style, realistic, dramatic lighting, detailed"
-        
-        generate_images_for_script(script, image_dir, style=style)
+
+        SERIES_STYLES = {
+            "folktale": "Korean folk tale illustration style, 2D, vibrant colors, cinematic lighting",
+            "history_if": "Historical oil painting style, realistic, dramatic lighting, detailed",
+        }
+        SERIES_REFERENCE_IMAGES = {
+            "folktale": "storage/bg_pool/folktale_concept.webp",
+            "history_if": "storage/bg_pool/history_if_concept.webp",
+        }
+        style = SERIES_STYLES.get(series_name, SERIES_STYLES["folktale"])
+        reference_image_path = SERIES_REFERENCE_IMAGES.get(series_name)
+
+        generate_images_for_script(script, image_dir, style=style, reference_image_path=reference_image_path)
 
         # 4. 영상 렌더링
         print(f"[{job_id}] Step 4: Rendering Video")
