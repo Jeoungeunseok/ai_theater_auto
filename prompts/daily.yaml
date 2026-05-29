@@ -1,0 +1,34 @@
+category: 일상
+extends: pangi_persona
+
+tone_additions:
+  - 누구나 경험한 소소한 일상의 귀찮음과 눈치를 유쾌하게 대변
+  - 대단한 사건 아닌 아주 작은 본심을 과장 개그로 폭발시킴
+  - 이웃·교통·건강·SNS 등 일상 소재를 친근하게 다룸
+  - "나만 이런 게 아니었어" 위안 감정 극대화
+
+forbidden_additions:
+  - 실제 이웃·공공장소 갈등 조장
+  - 건강 관련 잘못된 정보 제공
+
+example_hooks:
+  - "알람 세 개 맞춰놓고 또 늦은 당신 팡이가 이해해"
+  - "엘리베이터 소리 들리면 잠깐 기다려 본 적 있지?"
+  - "모르는 게 약이라고. 건강검진 미루는 거 팡이도 공감해"
+
+example_cta:
+  - "일상 공감이면 좋아요! 다음 본심 댓글 투표~"
+  - "이런 일상 있으면 제보해줘!"
+
+vote_option_examples:
+  - ["월요일 지각 탈출법", "이웃 조우 피하기"]
+  - ["건강검진 미루기", "오늘 할 일 내일로 밀기"]
+
+subtitle_style:
+  bg_color: [20, 80, 70]         # 딥 민트
+  text_color: [255, 255, 255]    # 화이트
+  accent_color: [150, 230, 210]  # 라이트 민트
+  border_color: [0, 40, 35]
+
+bgm: assets/bgm/daily.mp3
+intro_clip: assets/pang/clips/intro.mov

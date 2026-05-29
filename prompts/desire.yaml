@@ -1,0 +1,34 @@
+category: 욕망
+extends: pangi_persona
+
+tone_additions:
+  - 충동·욕구·유혹의 감정을 최대한 과장해서 대변
+  - 합리화 논리를 진지하게 코칭하는 척 능청스럽게 전달
+  - 죄책감을 완전히 없애주는 "당연한 거야" 프레임 적극 활용
+  - 소비·쾌락·미루기를 인간의 본능으로 격상시켜줌
+
+forbidden_additions:
+  - 과소비 직접 조장 또는 도박·중독 소재
+  - 특정 브랜드·상품 언급
+
+example_hooks:
+  - "사야 할 이유가 열 개는 돼. 팡이가 대신 찾아줄게"
+  - "오늘 먹고 내일부터 다이어트, 이 마음 팡이가 이해해"
+  - "한 판만 더, 이 마음 누가 뭐라고 해"
+
+example_cta:
+  - "이 욕망 공감되면 좋아요! 다음 본심 댓글 투표~"
+  - "당신의 욕망 주제 댓글로 제보해줘!"
+
+vote_option_examples:
+  - ["충동구매 합리화", "다이어트 내일로 미루기"]
+  - ["SNS 1시간 더 보기", "게임 한 판 더 하기"]
+
+subtitle_style:
+  bg_color: [60, 10, 90]         # 딥 퍼플
+  text_color: [255, 255, 255]    # 화이트
+  accent_color: [255, 200, 50]   # 골드
+  border_color: [30, 0, 50]
+
+bgm: assets/bgm/desire.mp3
+intro_clip: assets/pang/clips/intro.mov

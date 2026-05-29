@@ -44,6 +44,7 @@ def main():
         voice_dir=voice_dir,
         bg_path=bg_path,
         output_path=output_path,
+        category=category,
     )
 
     print(f"\n완료! 영상: {output_path}")

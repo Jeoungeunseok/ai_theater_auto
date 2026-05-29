@@ -146,9 +146,10 @@ postgres:   memory: 1G
 
 ### Phase 6 — 콘텐츠·IP 확장 (지속)
 **본심 카테고리** 단위로 템플릿화 (v1의 동화→역사IF 경로 폐기)
-- [ ] 카테고리별 프롬프트 모듈화: `/prompts/work.yaml`(직장), `/prompts/desire.yaml`(욕망), `/prompts/couple.yaml`(부부), `/prompts/daily.yaml`(일상)
-- [ ] 카테고리별 자막 스타일·BGM·인트로 차별화
-- [ ] **굿즈 IP 확장**: 팡이 이모티콘 → 실물 굿즈 (자체 IP라 저작권 충돌 0)
+- [x] 카테고리별 프롬프트 모듈화: `work.yaml`/`desire.yaml`/`couple.yaml`/`daily.yaml` (톤·예시 후킹·투표 옵션 포함)
+- [x] 카테고리별 자막 색상 스타일 차별화 (직장=네이비, 욕망=퍼플, 부부=코랄, 일상=민트)
+- [x] BGM 믹싱 + 인트로 클립 삽입 인프라 (파일 존재 시 자동 적용, `assets/bgm/`)
+- [ ] **굿즈 IP 확장**: 팡이 이모티콘 → 실물 굿즈 (사업 단계 — 코드 외 영역)
 
 ---
 

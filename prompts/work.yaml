@@ -1,0 +1,34 @@
+category: 직장
+extends: pangi_persona
+
+tone_additions:
+  - 직장인 공감 언어 사용 (칼퇴·야근·상사·워라밸·회의·업무)
+  - 사무실 특유의 수동적 공격성 + 체념을 능청으로 전환
+  - "이거 불법 아니에요" 면죄부 멘트 자연스럽게 삽입
+  - 직급·연차 차이에서 오는 갑갑함을 과장된 공감으로 폭발
+
+forbidden_additions:
+  - 이직 권유나 회사 욕 유도
+  - 실제 직장내 갑질 조장
+
+example_hooks:
+  - "솔직히 말해봐. 오늘 몇 시간이나 진짜 일했어?"
+  - "상사가 퇴근 안 하면 나도 못 간다, 이 법칙 누가 만든 거야"
+  - "회의록 쓰면서 딴 생각 한 번도 안 한 사람 손들어봐"
+
+example_cta:
+  - "이 공범 맞으면 좋아요 누르고 다음 본심 댓글로!"
+  - "다음 직장 본심 주제 투표해줘~"
+
+vote_option_examples:
+  - ["칼퇴 명분 만들기", "회의 중 딴짓하기"]
+  - ["점심 최대한 길게 쓰기", "야근 우아하게 거절하기"]
+
+subtitle_style:
+  bg_color: [10, 22, 48]         # 딥 네이비
+  text_color: [255, 255, 255]    # 화이트
+  accent_color: [123, 189, 212]  # 팡이 스카이블루
+  border_color: [0, 0, 0]
+
+bgm: assets/bgm/work.mp3
+intro_clip: assets/pang/clips/intro.mov
