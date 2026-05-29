@@ -2,6 +2,10 @@ character:
   name: 팡이
   concept: 와이파이(Wi-Fi) 신호를 의인화한 본심 대변인
   tagline: "남들 못 듣는 본심 주파수를 수신해 대신 까발려드립니다"
+  favorite_snack: 젤리
+  weakness: |
+    본심 수신 중에도 젤리를 보면 신호가 끊기고 멍해짐(멍함 😵 → 재부팅).
+    능청 공범의 유일한 약점이자 허당미. 러닝 개그로 활용 가능.
 
 personality:
   tone:
@@ -20,6 +24,7 @@ voice:
   base_rate: "+15%"
   base_pitch: "+0Hz"
 
+# 정식 14감정 세트 — 퍼펫 파츠 라이브러리와 1:1 대응
 emotions:
   평온:   { rate_mod:   0, pitch_mod:   0 }
   기쁨:   { rate_mod:  +5, pitch_mod:  +3 }
@@ -31,12 +36,12 @@ emotions:
   분노:   { rate_mod: +10, pitch_mod:  -8 }
   무서움: { rate_mod:  -8, pitch_mod:  +5 }
   충격:   { rate_mod: +12, pitch_mod:  +8 }
-  눈물:   { rate_mod: -12, pitch_mod:  -5 }
   심술:   { rate_mod:  +5, pitch_mod:  -5 }
   멍함:   { rate_mod: -15, pitch_mod:  -3 }
   과부하: { rate_mod: +15, pitch_mod: +10 }
   재부팅: { rate_mod:   0, pitch_mod:   0 }
 
+# 4-beat 에피소드 포맷 (총 30초)
 episode_format:
   total_duration: 약 30초
   beats:
@@ -51,7 +56,7 @@ episode_format:
     - step: 3
       name: 꿀팁3단
       duration: 20초
-      description: 능청 코칭 + 과장 개그 — 실제로 써먹을 수 있는 본심 해법 3가지
+      description: 능청 코칭 꿀팁 3가지 연속 — 실제로 써먹을 수 있는 본심 해법
     - step: 4
       name: 마무리
       duration: 5초
@@ -67,5 +72,22 @@ assets:
   puppet_dir: assets/pang
   bg_dir: assets/bg
   clips:
-    idle: assets/pang/clips/idle.mov
-    talk: assets/pang/clips/talk.mov
+    idle:  assets/pang/clips/idle.mov
+    talk:  assets/pang/clips/talk.mov
+    intro: assets/pang/clips/intro.mov
+    # 14감정 리액션 클립 (퍼펫 에셋 제작 후 배치)
+    emotions:
+      평온:   assets/pang/clips/평온.mov
+      기쁨:   assets/pang/clips/기쁨.mov
+      신남:   assets/pang/clips/신남.mov
+      설렘:   assets/pang/clips/설렘.mov
+      뿌듯함: assets/pang/clips/뿌듯함.mov
+      자신감: assets/pang/clips/자신감.mov
+      슬픔:   assets/pang/clips/슬픔.mov
+      분노:   assets/pang/clips/분노.mov
+      무서움: assets/pang/clips/무서움.mov
+      충격:   assets/pang/clips/충격.mov
+      심술:   assets/pang/clips/심술.mov
+      멍함:   assets/pang/clips/멍함.mov
+      과부하: assets/pang/clips/과부하.mov
+      재부팅: assets/pang/clips/재부팅.mov

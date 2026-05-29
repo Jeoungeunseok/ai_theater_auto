@@ -10,6 +10,7 @@ load_dotenv()
 
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# 정식 14감정 세트 — pangi_persona.yaml emotions와 동일하게 유지
 _EMOTION_MOD: dict[str, tuple[int, int]] = {
     "평온":   (  0,   0),
     "기쁨":   ( +5,  +3),
@@ -21,7 +22,6 @@ _EMOTION_MOD: dict[str, tuple[int, int]] = {
     "분노":   (+10,  -8),
     "무서움": ( -8,  +5),
     "충격":   (+12,  +8),
-    "눈물":   (-12,  -5),
     "심술":   ( +5,  -5),
     "멍함":   (-15,  -3),
     "과부하": (+15, +10),

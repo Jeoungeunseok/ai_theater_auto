@@ -68,27 +68,23 @@ def _build_system_prompt(persona: dict, category_cfg: dict) -> str:
 
 [사용 가능한 감정] {emotions}
 
-[에피소드 포맷 — 총 약 30초]
-beat 1 "후킹"    (3초): 시청자가 멈추게 만드는 도발적 본심 선언 한 줄
-beat 2 "본심수신" (2초): 팡이가 본심 주파수 수신 — 안테나 번쩍 멘트
-beat 3 "꿀팁1"   (7초): 능청 코칭 첫 번째
-beat 4 "꿀팁2"   (7초): 능청 코칭 두 번째
-beat 5 "꿀팁3"   (6초): 능청 코칭 세 번째
-beat 6 "마무리"  (5초): 공범 윙크 + 다음 본심 투표 CTA
+[에피소드 포맷 — 총 약 30초, 4-beat]
+beat 1 "후킹"    (3초):  시청자가 멈추게 만드는 도발적 본심 선언 한 줄
+beat 2 "본심수신" (2초):  팡이가 본심 주파수 수신 — 안테나 번쩍 멘트
+beat 3 "꿀팁3단" (20초): 능청 코칭 꿀팁 3가지를 자연스럽게 이어서. 각 팁 사이 짧은 호흡 포함
+beat 4 "마무리"  (5초):  공범 윙크 + 다음 본심 투표 CTA
 {hook_examples}
 
-반드시 아래 JSON 형식으로만 응답하세요:
+반드시 아래 JSON 형식으로만 응답하세요 (beat는 정확히 4개):
 {{
   "episode_no": <int>,
   "category": "<카테고리>",
   "topic": "<주제>",
   "beats": [
-    {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>", "duration_sec": 3}},
-    {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>", "duration_sec": 2}},
-    {{"beat": "꿀팁1",  "emotion": "<감정>", "dialogue": "<대사>", "duration_sec": 7}},
-    {{"beat": "꿀팁2",  "emotion": "<감정>", "dialogue": "<대사>", "duration_sec": 7}},
-    {{"beat": "꿀팁3",  "emotion": "<감정>", "dialogue": "<대사>", "duration_sec": 6}},
-    {{"beat": "마무리", "emotion": "<감정>", "dialogue": "<대사>", "duration_sec": 5}}
+    {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>",               "duration_sec": 3}},
+    {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>",               "duration_sec": 2}},
+    {{"beat": "꿀팁3단", "emotion": "<감정>", "dialogue": "<꿀팁 3가지 연속 대사>","duration_sec": 20}},
+    {{"beat": "마무리",  "emotion": "<감정>", "dialogue": "<대사>",               "duration_sec": 5}}
   ],
   "vote_options": ["<다음 주제 후보 A>", "<다음 주제 후보 B>"]
 }}"""
