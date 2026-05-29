@@ -2,74 +2,68 @@ import json
 from db.database import SessionLocal
 from db.models import Episode, Vote
 from api.youtube import get_youtube_client
-from api.slack import client as slack_client
+from worker.slack_notifier import send_vote_report
+
 
 def collect_comments_and_vote(episode_id: int):
-    """
-    YouTube 댓글을 수집하여 선택지별로 투표수를 집계합니다.
-    """
+    """YouTube 댓글 수집 → 투표 집계 → DB 저장 → Slack 리포트."""
     db = SessionLocal()
     try:
         episode = db.query(Episode).filter(Episode.id == episode_id).first()
         if not episode or not episode.youtube_video_id:
-            print(f"Episode {episode_id} or YouTube Video ID not found")
+            print(f"Episode {episode_id} 또는 YouTube ID 없음")
             return
 
-        if not episode.choices:
-            print(f"Episode {episode_id} has no choices defined")
+        if not episode.vote_options:
+            print(f"Episode {episode_id} vote_options 없음")
             return
-        choices = json.loads(episode.choices)
+        vote_options = json.loads(episode.vote_options)
 
         youtube = get_youtube_client()
         if not youtube:
             return
 
-        # 1. 댓글 전체 수집 (페이지네이션 처리)
+        # 댓글 전체 수집 (페이지네이션)
         all_items = []
         next_page_token = None
         while True:
-            request = youtube.commentThreads().list(
+            resp = youtube.commentThreads().list(
                 part="snippet",
                 videoId=episode.youtube_video_id,
                 maxResults=100,
                 pageToken=next_page_token,
-            )
-            response = request.execute()
-            all_items.extend(response.get("items", []))
-            next_page_token = response.get("nextPageToken")
+            ).execute()
+            all_items.extend(resp.get("items", []))
+            next_page_token = resp.get("nextPageToken")
             if not next_page_token:
                 break
 
-        # 2. 투표 집계 (키워드 매칭)
-        votes_count = {choice: 0 for choice in choices}
+        # 투표 집계 (키워드 매칭)
+        votes_count = {opt: 0 for opt in vote_options}
         for item in all_items:
             comment = item["snippet"]["topLevelComment"]["snippet"]["textDisplay"]
-            for choice in choices:
-                if choice in comment:
-                    votes_count[choice] += 1
+            for opt in vote_options:
+                if opt in comment:
+                    votes_count[opt] += 1
 
-        # 3. DB 업데이트 (upsert)
+        # DB upsert
         for choice, count in votes_count.items():
             vote = db.query(Vote).filter(
                 Vote.episode_id == episode_id,
                 Vote.choice_key == choice,
             ).first()
-
             if vote:
                 vote.count = count
             else:
                 db.add(Vote(episode_id=episode_id, choice_key=choice, count=count))
-
         db.commit()
-        print(f"Votes updated for Episode {episode_id}: {votes_count}")
 
-        # 4. Slack 보고
-        report_text = f"*Ep.{episode.episode_no} 투표 결과 보고*\n"
-        for choice, count in votes_count.items():
-            report_text += f"- {choice}: {count}표\n"
-        slack_client.chat_postMessage(channel="#ai-theater-alerts", text=report_text)
+        # 최다 득표 → 다음 주제 시드
+        next_topic = max(votes_count, key=votes_count.get) if votes_count else ""
+        send_vote_report(episode.episode_no, votes_count, next_topic=next_topic)
+        print(f"Ep.{episode.episode_no} 투표 집계 완료: {votes_count}")
 
     except Exception as e:
-        print(f"Error collecting comments: {e}")
+        print(f"댓글 수집 오류: {e}")
     finally:
         db.close()

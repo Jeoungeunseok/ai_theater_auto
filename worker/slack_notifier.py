@@ -11,7 +11,7 @@ def _client() -> WebClient | None:
 
 
 def send_approval_message(job_id: str, topic: str, video_path: str):
-    """렌더링 완료 → Slack 승인 요청."""
+    """렌더링 완료 → Slack 승인 요청 (승인 / 반려 / 재생성 버튼)."""
     client = _client()
     if not client:
         print("[WARN] SLACK_BOT_TOKEN 미설정 — Slack 알림 건너뜀")
@@ -41,6 +41,12 @@ def send_approval_message(job_id: str, topic: str, video_path: str):
                     "style": "danger",
                     "value": job_id,
                     "action_id": "reject_video",
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "재생성"},
+                    "value": job_id,
+                    "action_id": "regenerate_video",
                 },
             ],
         },
@@ -76,3 +82,20 @@ def send_error_alert(job_id: str, topic: str, error: str, retry_count: int):
         )
     except SlackApiError as e:
         print(f"[WARN] 에러 알람 전송 실패: {e}")
+
+
+def send_vote_report(episode_no: int, votes: dict, next_topic: str = ""):
+    """투표 결과 일일 리포트."""
+    client = _client()
+    if not client:
+        return
+
+    lines = "\n".join(f"- {k}: {v}표" for k, v in votes.items())
+    text = f"*Ep.{episode_no:02d} 다음 본심 투표 결과*\n{lines}"
+    if next_topic:
+        text += f"\n\n차주 확정 주제: *{next_topic}*"
+
+    try:
+        client.chat_postMessage(channel=_SLACK_CHANNEL, text=text)
+    except SlackApiError as e:
+        print(f"[WARN] 투표 리포트 전송 실패: {e}")

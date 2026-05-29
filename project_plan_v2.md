@@ -121,11 +121,11 @@ postgres:   memory: 1G
 - [x] **멱등키:** `job_id`를 YouTube 설명에 `ref:{job_id}` 형식으로 포함
 
 ### Phase 3 — Slack Human-in-the-loop (1.5주)
-- [ ] Slack App + Interactive Components URL = `https://<ngrok>/slack/actions`
-- [ ] `X-Slack-Signature` HMAC 검증 미들웨어 (위조 차단)
-- [ ] 워커 렌더 완료 → Slack에 프리뷰 mp4 + `[승인]/[반려]/[재생성]` 버튼
-- [ ] 승인 → `upload_queue`, 반려 → 사유 modal → DB 기록
-- [ ] 로컬 개발 중엔 ngrok / Cloudflare Tunnel (사용 후 수동 종료)
+- [ ] Slack App + Interactive Components URL = `https://<ngrok>/slack/actions` (사용자 직접 설정)
+- [x] `X-Slack-Signature` HMAC 검증 → `api/slack.py` `verify_slack_signature`
+- [x] 워커 렌더 완료 → Slack에 프리뷰 mp4 + `[승인]/[반려]/[재생성]` 버튼 → `worker/slack_notifier.py`
+- [x] 승인 → `upload_queue` / 반려 → 사유 modal(`reject_reason_modal`) → DB 기록 / 재생성 → `render_queue` 재투입
+- [ ] 로컬 개발 중 ngrok / Cloudflare Tunnel 실행 (사용 후 수동 종료)
 
 ### Phase 4 — YouTube 자동 업로드 (1주)
 - [ ] OAuth 2.0 refresh token 저장 (Postgres 암호화 필드)
