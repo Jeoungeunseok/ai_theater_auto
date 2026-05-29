@@ -300,8 +300,11 @@ def render_full_short(script_path: str, voice_dir: str, image_dir: str, output_p
         if not os.path.exists(bg_image):
             bg_image = os.path.join(image_dir, "scene_00.png")
 
+        # 자막은 실제 대사로 표시
+        subtitle = scene.get("dialogue") or scene.get("narration", "")
+
         scene_out = os.path.join(tmp_dir, f"scene_{i:02d}.mp4")
-        render_scene(audio, bg_image, scene["caption"], scene_out)
+        render_scene(audio, bg_image, subtitle, scene_out)
         scene_paths.append(scene_out)
         print(f"  렌더링 완료: {scene_out}")
 

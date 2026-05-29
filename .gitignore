@@ -21,6 +21,13 @@ build/
 *.png
 *.jpg
 *.jpeg
+*.webp
+
+# 퍼펫 에셋은 영구 보관 대상 — 위 이미지 규칙에서 예외
+!assets/pang/**/*.png
+!assets/pang/**/*.mov
+!assets/pang/**/.gitkeep
+!assets/bg/.gitkeep
 
 # 임시/스토리지 폴더
 storage/

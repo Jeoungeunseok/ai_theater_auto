@@ -10,9 +10,41 @@ import os
 # 조연(두 번째 캐릭터~): 남성 목소리
 NARRATOR_VOICE = ("ko-KR-HyunsuMultilingualNeural", "+5%",  "+0Hz")
 CHARACTER_VOICES = [
-    ("ko-KR-SunHiNeural",              "+18%", "+8Hz"),
-    ("ko-KR-InJoonNeural",             "+15%", "+0Hz"),
+    ("ko-KR-SunHiNeural",  "+18%", "+8Hz"),
+    ("ko-KR-InJoonNeural", "+15%", "+0Hz"),
 ]
+
+# 감정별 rate/pitch 보정값 (캐릭터 기본값에 더해짐)
+EMOTION_VOICE_MOD = {
+    "평온":   (  0,  0),
+    "기쁨":   ( +5, +3),
+    "신남":   (+10, +5),
+    "설렘":   ( +5, +5),
+    "뿌듯함": ( +3, +2),
+    "자신감": ( +5, +2),
+    "슬픔":   (-10, -5),
+    "분노":   (+10, -8),
+    "무서움": ( -8, +5),
+    "충격":   (+12, +8),
+    "눈물":   (-12, -5),
+    "심술":   ( +5, -5),
+    "멍함":   (-15, -3),
+    "과부하": (+15, +10),
+    "재부팅": (  0,  0),
+}
+
+
+def _apply_emotion(base_rate: str, base_pitch: str, emotion: str):
+    """기본 rate/pitch에 감정 보정값을 적용합니다."""
+    mod_rate, mod_pitch = EMOTION_VOICE_MOD.get(emotion, (0, 0))
+
+    # "+18%" → 18 파싱
+    r = int(base_rate.replace("%", "").replace("+", ""))
+    p = int(base_pitch.replace("Hz", "").replace("+", ""))
+
+    final_rate  = f"{r + mod_rate:+d}%"
+    final_pitch = f"{p + mod_pitch:+d}Hz"
+    return final_rate, final_pitch
 
 
 def _clean_for_tts(text: str) -> str:
@@ -61,12 +93,14 @@ async def generate_voice_over(script_path, output_dir):
         output_path = os.path.join(output_dir, f"scene_{i:02d}.mp3")
 
         voice_cfg = voice_map.get(character, CHARACTER_VOICES[0])
-        voice, rate, pitch = voice_cfg
+        voice, base_rate, base_pitch = voice_cfg
+        emotion = scene.get("emotion", "평온")
+        rate, pitch = _apply_emotion(base_rate, base_pitch, emotion)
 
         try:
             communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
             await communicate.save(output_path)
-            print(f"  Generated [{character}] scene_{i:02d}.mp3")
+            print(f"  Generated [{character} / {emotion}] scene_{i:02d}.mp3  (rate={rate}, pitch={pitch})")
         except Exception as e:
             print(f"  [ERROR] scene_{i:02d} 보이스 생성 실패: {e}")
             raise

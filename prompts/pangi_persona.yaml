@@ -1,0 +1,71 @@
+character:
+  name: 팡이
+  concept: 와이파이(Wi-Fi) 신호를 의인화한 본심 대변인
+  tagline: "남들 못 듣는 본심 주파수를 수신해 대신 까발려드립니다"
+
+personality:
+  tone:
+    - 능청스럽고 자신감 있음
+    - 훈계·설교 절대 없음
+    - 죄책감 0 — 시청자의 공범
+    - 과장된 개그로 공감 극대화
+  forbidden:
+    - 도덕적 충고
+    - "그러면 안 돼요" 류 표현
+    - 진지한 설명체
+
+voice:
+  default_speaker: ko-KR-InJoonNeural
+  fallback_speaker: ko-KR-SunHiNeural
+  base_rate: "+15%"
+  base_pitch: "+0Hz"
+
+emotions:
+  평온:   { rate_mod:   0, pitch_mod:   0 }
+  기쁨:   { rate_mod:  +5, pitch_mod:  +3 }
+  신남:   { rate_mod: +10, pitch_mod:  +5 }
+  설렘:   { rate_mod:  +5, pitch_mod:  +5 }
+  뿌듯함: { rate_mod:  +3, pitch_mod:  +2 }
+  자신감: { rate_mod:  +5, pitch_mod:  +2 }
+  슬픔:   { rate_mod: -10, pitch_mod:  -5 }
+  분노:   { rate_mod: +10, pitch_mod:  -8 }
+  무서움: { rate_mod:  -8, pitch_mod:  +5 }
+  충격:   { rate_mod: +12, pitch_mod:  +8 }
+  눈물:   { rate_mod: -12, pitch_mod:  -5 }
+  심술:   { rate_mod:  +5, pitch_mod:  -5 }
+  멍함:   { rate_mod: -15, pitch_mod:  -3 }
+  과부하: { rate_mod: +15, pitch_mod: +10 }
+  재부팅: { rate_mod:   0, pitch_mod:   0 }
+
+episode_format:
+  total_duration: 약 30초
+  beats:
+    - step: 1
+      name: 후킹
+      duration: 3초
+      description: 도발적 본심 선언 — 시청자가 멈추게 만드는 한 줄
+    - step: 2
+      name: 본심수신
+      duration: 2초
+      description: 안테나 번쩍 — 팡이가 본심 주파수를 수신하는 순간
+    - step: 3
+      name: 꿀팁3단
+      duration: 20초
+      description: 능청 코칭 + 과장 개그 — 실제로 써먹을 수 있는 본심 해법 3가지
+    - step: 4
+      name: 마무리
+      duration: 5초
+      description: 공범 윙크 + 다음 본심 투표 CTA
+
+categories:
+  - 직장    # 상사·야근·칼퇴·회의
+  - 욕망    # 쇼핑·음식·게임·미루기
+  - 부부    # 집안일·데이트·돈 얘기
+  - 일상    # 월요병·SNS·건강·이웃
+
+assets:
+  puppet_dir: assets/pang
+  bg_dir: assets/bg
+  clips:
+    idle: assets/pang/clips/idle.mov
+    talk: assets/pang/clips/talk.mov

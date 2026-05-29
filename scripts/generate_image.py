@@ -52,17 +52,30 @@ def generate_scene_image(prompt, output_path, style="digital art, high quality, 
 def generate_images_for_script(script_data, output_dir, style="Korean folk tale illustration style, 2D, vibrant colors", reference_image_paths=None):
     """
     대본 전체의 각 장면에 맞는 이미지를 생성합니다.
+    캐릭터 첫 등장 이미지를 이후 동일 캐릭터 장면의 레퍼런스로 자동 추가합니다.
     """
     os.makedirs(output_dir, exist_ok=True)
 
+    # 캐릭터별 첫 등장 이미지 경로 추적
+    character_first_image: dict = {}
+
     for i, scene in enumerate(script_data["scenes"]):
         image_path = os.path.join(output_dir, f"scene_{i:02d}.png")
-        # scene_description 우선, 없으면 구버전 narration 폴백
         scene_desc = scene.get("scene_description") or scene.get("narration", "")
         emotion = scene.get("emotion", "")
         character = scene.get("character", "")
         prompt = f"{scene_desc} Character: {character}. Emotion: {emotion}." if emotion else scene_desc
+
+        # 동일 캐릭터의 첫 등장 이미지가 있으면 레퍼런스에 추가
+        char_refs = list(reference_image_paths or [])
+        if character in character_first_image:
+            char_refs.append(character_first_image[character])
+
         print(f"Generating image for Scene {i} [{character} / {emotion}]...")
-        success = generate_scene_image(prompt, image_path, style=style, reference_image_paths=reference_image_paths)
+        success = generate_scene_image(prompt, image_path, style=style, reference_image_paths=char_refs)
         if not success:
             raise RuntimeError(f"Scene {i} 이미지 생성 실패: {prompt[:50]}")
+
+        # 이 캐릭터의 첫 등장 이미지로 등록
+        if character and character not in character_first_image:
+            character_first_image[character] = image_path
