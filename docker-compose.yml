@@ -56,14 +56,14 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-ai_theater}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai_theater}
-      POSTGRES_DB: ${POSTGRES_DB:-ai_theater_db}
+      POSTGRES_USER: ${POSTGRES_USER:-pangi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pangi}
+      POSTGRES_DB: ${POSTGRES_DB:-pangi_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai_theater}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pangi}"]
       interval: 5s
       timeout: 5s
       retries: 5

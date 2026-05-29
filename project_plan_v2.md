@@ -128,10 +128,10 @@ postgres:   memory: 1G
 - [ ] 로컬 개발 중 ngrok / Cloudflare Tunnel 실행 (사용 후 수동 종료)
 
 ### Phase 4 — YouTube 자동 업로드 (1주)
-- [ ] OAuth 2.0 refresh token 저장 (Postgres 암호화 필드)
-- [ ] **Resumable Upload** 필수 (Wi-Fi 끊겨도 이어서 업로드)
-- [ ] 업로드 중 `caffeinate -dims`로 슬립 차단
-- [ ] 메타데이터 자동 생성: 타이틀 공식(`[도발적 본심 질문] + [주제] | 팡이 Ep.XX`), 태그, 썸네일
+- [x] OAuth 2.0 refresh token → 환경변수(`YOUTUBE_REFRESH_TOKEN`) 기반, access token 자동 갱신
+- [x] **Resumable Upload** — 5MB 청크 + HttpError 지수 백오프(최대 5회)
+- [x] 업로드 중 `caffeinate -dims` 슬립 차단 (macOS, Docker에서는 skip)
+- [x] 메타데이터: 타이틀(`후킹 대사 | 팡이 Ep.XX`), 카테고리별 태그, Pillow 썸네일 자동 생성 및 등록
 
 ### Phase 5 — 소재 엔진 + 인터랙티브 루프 ⭐ 차별화 (2.5주)
 > v1의 "댓글 투표 수집"만으론 부족 → **4단 소스 엔진**으로 확장
