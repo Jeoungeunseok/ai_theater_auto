@@ -7,6 +7,7 @@ from scripts.generate_script import generate_pangi_script
 from scripts.generate_voice import generate_pangi_voice
 from scripts.generate_image import generate_background
 from scripts.render_short import render_pangi_short
+from scripts.daily_cost import is_queue_paused, record_cost
 from worker.slack_notifier import send_approval_message, send_error_alert
 
 _RETRY_DELAYS = [60, 300, 1800]  # 1분 → 5분 → 30분
@@ -31,6 +32,10 @@ def create_video_task(job_id: str, topic: str, category: str = "직장", episode
             print(f"[{job_id}] Job not found")
             return
 
+        if is_queue_paused():
+            print(f"[{job_id}] 일일 비용 한도 초과 — 큐 정지 중")
+            return
+
         if episode_no is None:
             episode_no = _next_episode_no(db, category)
 
@@ -45,6 +50,7 @@ def create_video_task(job_id: str, topic: str, category: str = "직장", episode
         # 1. 대본 생성
         _step(db, job, "generating_script")
         script = generate_pangi_script(topic, category=category, episode_no=episode_no)
+        record_cost("script")
         script_path = os.path.join(tmp_dir, "script.json")
         with open(script_path, "w", encoding="utf-8") as f:
             json.dump(script, f, ensure_ascii=False, indent=2)
@@ -54,6 +60,7 @@ def create_video_task(job_id: str, topic: str, category: str = "직장", episode
         bg_path = f"assets/bg/ep{episode_no:02d}_{category}.webp"
         if not os.path.exists(bg_path):
             generate_background(topic, category=category, output_path=bg_path)
+            record_cost("background")
 
         # 3. 보이스 생성
         _step(db, job, "generating_voice")

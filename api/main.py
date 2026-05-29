@@ -12,8 +12,9 @@ from slack_sdk.errors import SlackApiError
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import Job, JobStatus
+from db.models import Job, JobStatus, Submission
 from api.slack import verify_slack_signature
+from scripts.topic_engine import add_submission
 
 app = FastAPI(title="팡이 API")
 
@@ -34,6 +35,11 @@ class JobCreate(BaseModel):
     episode_no: Optional[int] = None
 
 
+class SubmissionCreate(BaseModel):
+    raw_text: str
+    consent: bool  # 반드시 True여야 접수
+
+
 class JobResponse(BaseModel):
     job_id: str
     status: str
@@ -42,6 +48,15 @@ class JobResponse(BaseModel):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.post("/submissions")
+async def create_submission(body: SubmissionCreate, db: Session = Depends(get_db)):
+    """시청자 제보 접수 — 동의 필수, 개인정보 자동 익명화."""
+    if not body.consent:
+        raise HTTPException(status_code=400, detail="동의 없이 제보 불가")
+    add_submission(body.raw_text, consent=True, db=db)
+    return {"ok": True, "message": "제보해주셔서 감사합니다! 팡이가 까발려드릴게요."}
 
 
 @app.post("/jobs", response_model=JobResponse)

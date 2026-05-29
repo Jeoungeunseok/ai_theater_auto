@@ -135,13 +135,14 @@ postgres:   memory: 1G
 
 ### Phase 5 — 소재 엔진 + 인터랙티브 루프 ⭐ 차별화 (2.5주)
 > v1의 "댓글 투표 수집"만으론 부족 → **4단 소스 엔진**으로 확장
-- [ ] **(1) 시청자 제보**: 영상 CTA + 구글폼/댓글 수집 → `submissions` 적재 (동의·익명화 처리)
-- [ ] **(2) 트렌드 마이닝**: 커뮤니티 인기글·유사채널 댓글에서 "반복되는 본심/빡침 *유형*"만 추출(원문 X) + 네이버 데이터랩/구글 트렌드 API로 상승세 검증
-- [ ] **(3) 아키타입 뱅크**: "본심 상황 유형 × 능청 해법" 조합 라이브러리 → 입력 0에서도 무한 생성
-- [ ] **(4) AI 오리지널**: 위 입력값으로 GPT가 *완전 새 사연* 생성 (저작권·양산정책 안전)
-- [ ] `comments_collector`: 발행 48시간 후 댓글 수집 → "다음 본심 주제" 키워드 매칭(정규식+LLM 보조)
-- [ ] `votes` 누적 → 최다 표 → 다음 화 주제 시드로 GPT 호출
-- [ ] Slack 일일 리포트: "Ep.03 다음 본심 투표: 월요병 탈출 312표 vs 칼퇴 명분 87표 → 차주 주제 확정"
+- [x] **(1) 시청자 제보**: `POST /submissions` → 동의 확인 + PII 익명화 후 `submissions` DB 저장
+- [x] **(2) 트렌드 마이닝**: GPT로 카테고리별 현재 트렌드 본심 주제 추출 → `topic_engine.mine_trend_topic`
+- [x] **(3) 아키타입 뱅크**: `prompts/archetype_bank.yaml` — 카테고리별 16개 아키타입, 사용 후 status: used
+- [x] **(4) AI 오리지널**: `topic_engine.generate_ai_original` — 저작권 안전 완전 새 사연 생성
+- [x] `comment_tasks`: 정규식 1차 + GPT 2차 분류로 댓글 투표 집계, 최다 득표 → render_queue 자동 투입
+- [x] `votes` 누적 → 최다 표 → `_schedule_next_episode`로 다음 화 자동 큐 투입
+- [x] Slack 투표 리포트: `send_vote_report` (Ep.번호, 득표수, 다음 주제 확정)
+- [x] 비용 가드레일: `scripts/daily_cost.py` — Redis 카운터 + 임계치 초과 시 큐 정지
 
 ### Phase 6 — 콘텐츠·IP 확장 (지속)
 **본심 카테고리** 단위로 템플릿화 (v1의 동화→역사IF 경로 폐기)
