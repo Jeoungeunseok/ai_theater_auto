@@ -8,8 +8,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CLIPS_DIR = os.getenv("PANGI_CLIPS_DIR", "assets/pang/clips")
+_BASE_DIR  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_CLIPS_DIR = os.getenv("PANGI_CLIPS_DIR",  "assets/pang/clips")
+_EYES_DIR  = os.getenv("PANGI_EYES_DIR",   "assets/pang/eyes")
+_BASE_BODY = os.getenv("PANGI_BODY",        "assets/pang/base/body_front.png")
 
 _CATEGORY_FILE = {
     "직장": "work.yaml",
@@ -78,6 +80,7 @@ def _font_path() -> str:
 
 
 def _puppet_clip(beat_name: str, emotion: str) -> str | None:
+    """감정별 퍼펫 애니메이션 클립 경로. 없으면 None."""
     candidates = [
         os.path.join(_CLIPS_DIR, f"{emotion}.mov"),
         os.path.join(_CLIPS_DIR, "talk.mov"),
@@ -87,6 +90,42 @@ def _puppet_clip(beat_name: str, emotion: str) -> str | None:
         if os.path.exists(p):
             return p
     return None
+
+
+def _expression_png(emotion: str) -> str | None:
+    """크롭된 감정 PNG 경로. 없으면 None."""
+    p = os.path.join(_EYES_DIR, f"{emotion}.png")
+    return p if os.path.exists(p) else None
+
+
+def _composite_character(bg_path: str, emotion: str, output_path: str):
+    """
+    배경 위에 팡이 캐릭터(표정 PNG)를 합성한 정적 이미지 생성.
+    퍼펫 클립이 없을 때 사용하는 정적 표정 모드.
+    """
+    bg = Image.open(bg_path).convert("RGBA")
+    bg = bg.resize((1080, 1920), Image.LANCZOS)
+
+    expr_path = _expression_png(emotion)
+    if not expr_path:
+        # 표정 PNG도 없으면 배경만 반환
+        bg.convert("RGB").save(output_path)
+        return
+
+    expr = Image.open(expr_path).convert("RGBA")
+
+    # 캐릭터를 화면 너비의 65% 크기로 리사이즈
+    char_w = int(1080 * 0.65)
+    ratio = char_w / expr.width
+    char_h = int(expr.height * ratio)
+    expr = expr.resize((char_w, char_h), Image.LANCZOS)
+
+    # 화면 하단 35% 지점에 캐릭터 중앙 배치
+    x = (1080 - char_w) // 2
+    y = int(1920 * 0.30)
+
+    bg.paste(expr, (x, y), expr)
+    bg.convert("RGB").save(output_path)
 
 
 # ── 자막 합성 (Pillow — 폴백용) ──────────────────────────
@@ -179,11 +218,19 @@ def _render_beat_with_puppet(
 
 def _render_beat_fallback(
     bg_path: str, audio_path: str, subtitle: str,
-    output_path: str, style: dict = None,
+    output_path: str, style: dict = None, emotion: str = "평온",
 ):
-    """퍼펫 클립 없을 때: 배경 + TTS + 자막만으로 렌더링."""
+    """
+    퍼펫 클립 없을 때: 배경 + 정적 표정 PNG + TTS + 자막으로 렌더링.
+    표정 PNG도 없으면 배경만 사용.
+    """
+    # 1. 배경 + 캐릭터 표정 합성
+    composed = output_path.replace(".mp4", "_composed.png")
+    _composite_character(bg_path, emotion, composed)
+
+    # 2. 자막 합성
     captioned = output_path.replace(".mp4", "_sub.png")
-    _burn_subtitle(bg_path, subtitle, captioned, style=style)
+    _burn_subtitle(composed, subtitle, captioned, style=style)
     codec = _video_codec()
 
     try:
@@ -201,8 +248,63 @@ def _render_beat_fallback(
         if result.returncode != 0:
             raise RuntimeError(f"FFmpeg 실패:\n{result.stderr}")
     finally:
-        if os.path.exists(captioned):
-            os.remove(captioned)
+        for tmp in [composed, captioned]:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+
+
+# ── Kling 클립 렌더 (TTS + 자막 합성) ──────────────────────
+
+def _render_beat_with_kling(
+    clip_path: str, audio_path: str, subtitle: str,
+    output_path: str, style: dict = None, duration_sec: int = None,
+):
+    """
+    Kling 생성 클립에 TTS 오디오 교체 + 자막 합성.
+    클립이 beat보다 길면 duration_sec 기준으로 트림.
+    """
+    style = style or _DEFAULT_STYLE
+    codec = _video_codec()
+    font  = _font_path()
+    font_escaped = font.replace(":", r"\:").replace("'", r"\'") if font else ""
+
+    tc = style["text_color"]
+    bc = style["border_color"]
+    text_hex   = f"#{tc[0]:02x}{tc[1]:02x}{tc[2]:02x}"
+    border_hex = f"#{bc[0]:02x}{bc[1]:02x}{bc[2]:02x}"
+
+    safe_sub = subtitle.replace("'", "\\'").replace(":", r"\:")[:40]
+    drawtext = (
+        f"drawtext=fontfile='{font_escaped}':text='{safe_sub}':"
+        f"fontsize=44:fontcolor={text_hex}:borderw=3:bordercolor={border_hex}:"
+        f"x=(w-text_w)/2:y=h*0.82"
+        if font_escaped else ""
+    )
+
+    vf_parts = ["scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"]
+    if drawtext:
+        vf_parts.append(drawtext)
+    vf = ",".join(vf_parts)
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", clip_path,    # Kling 영상
+        "-i", audio_path,   # TTS 오디오
+        "-map", "0:v",      # 영상은 Kling 것 사용
+        "-map", "1:a",      # 오디오는 TTS로 교체
+        "-vf", vf,
+        "-c:v", codec[0], *codec[1:],
+        "-c:a", "aac",
+        "-pix_fmt", "yuv420p",
+        "-shortest",        # 오디오 길이 기준으로 맞춤
+    ]
+    if duration_sec:
+        cmd += ["-t", str(duration_sec)]
+    cmd.append(output_path)
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"FFmpeg 실패:\n{result.stderr}")
 
 
 # ── concat / BGM / 인트로 ────────────────────────────────
@@ -282,19 +384,29 @@ def render_pangi_short(
 
     beat_paths = []
     for i, beat in enumerate(beats):
-        audio = os.path.join(voice_dir, f"beat_{i:02d}.mp3")
-        subtitle = beat.get("dialogue", "")
-        emotion = beat.get("emotion", "평온")
+        audio     = os.path.join(voice_dir, f"beat_{i:02d}.mp3")
+        subtitle  = beat.get("dialogue", "")
+        emotion   = beat.get("emotion", "평온")
         beat_name = beat.get("beat", "")
-        out = os.path.join(tmp_dir, f"beat_{i:02d}.mp4")
+        duration  = beat.get("duration_sec")
+        out       = os.path.join(tmp_dir, f"beat_{i:02d}.mp4")
 
-        clip = _puppet_clip(beat_name, emotion)
-        if clip:
-            print(f"  [{beat_name}] 퍼펫 클립: {os.path.basename(clip)}")
-            _render_beat_with_puppet(bg_path, clip, audio, subtitle, out, style=style)
+        # Kling 클립이 있으면 최우선 사용
+        kling_clip = os.path.join(voice_dir.replace("voice", "clips"), f"beat_{i:02d}.mp4")
+        puppet     = _puppet_clip(beat_name, emotion)
+
+        if os.path.exists(kling_clip):
+            print(f"  [{beat_name}] Kling 클립 사용")
+            _render_beat_with_kling(kling_clip, audio, subtitle, out,
+                                    style=style, duration_sec=duration)
+        elif puppet:
+            print(f"  [{beat_name}] 퍼펫 클립: {os.path.basename(puppet)}")
+            _render_beat_with_puppet(bg_path, puppet, audio, subtitle, out, style=style)
         else:
-            print(f"  [{beat_name}] 퍼펫 클립 없음 — 정적 폴백")
-            _render_beat_fallback(bg_path, audio, subtitle, out, style=style)
+            has_expr = _expression_png(emotion) is not None
+            mode = "정적 표정" if has_expr else "배경만"
+            print(f"  [{beat_name}] 클립 없음 — {mode} 폴백 ({emotion})")
+            _render_beat_fallback(bg_path, audio, subtitle, out, style=style, emotion=emotion)
 
         beat_paths.append(out)
         print(f"    → {out}")
