@@ -3,65 +3,85 @@ from db.database import SessionLocal
 from db.models import Job, JobStatus, Episode
 from api.youtube import upload_to_youtube
 
-def upload_video_task(job_id: str, series_name: str = "Default", choices: list = None):
-    """
-    승인된 영상을 YouTube에 업로드하는 워커 태스크입니다.
-    """
+
+def upload_video_task(
+    job_id: str,
+    topic: str,
+    category: str = "직장",
+    episode_no: int = 1,
+    vote_options: list = None,
+):
+    """Slack 승인 후 YouTube 업로드."""
     db = SessionLocal()
-    db_job = None
+    job = None
     try:
-        db_job = db.query(Job).filter(Job.id == job_id).first()
-        if not db_job:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        if not job:
             print(f"[{job_id}] Job not found for upload")
             return
 
-        print(f"[{job_id}] Starting YouTube upload...")
+        # 타이틀 공식: [도발적 본심 질문] + [주제] | 팡이 Ep.XX
+        hooking_line = _load_hooking_line(job.video_path)
+        title = f"{hooking_line} | 팡이 Ep.{episode_no:02d}" if hooking_line else f"{topic} | 팡이 Ep.{episode_no:02d}"
 
-        video_title = f"{db_job.topic} #Shorts"
-        video_desc = f"AI Theater - {db_job.topic}\n#AI #Shorts #Story"
-
-        youtube_id = upload_to_youtube(
-            db_job.video_path,
-            video_title,
-            video_desc
+        # 멱등키: job_id를 설명에 포함해 중복 업로드 차단
+        vote_text = " / ".join(vote_options) if vote_options else ""
+        desc = (
+            f"팡이가 까발려드리는 본심 이야기\n\n"
+            f"다음 주제 투표: {vote_text}\n\n"
+            f"#팡이 #본심대변인 #Shorts #{category}\n\n"
+            f"ref:{job_id}"
         )
 
-        if youtube_id:
-            db_job.youtube_id = youtube_id
-            db_job.status = JobStatus.COMPLETED
-            db_job.current_step = "uploaded"
+        print(f"[{job_id}] YouTube 업로드 시작: {title}")
+        youtube_id = upload_to_youtube(job.video_path, title, desc)
 
-            last_episode = (
-                db.query(Episode)
-                .filter(Episode.series_name == series_name)
-                .order_by(Episode.episode_no.desc())
-                .first()
-            )
-            episode_no = (last_episode.episode_no + 1) if last_episode else 1
+        if youtube_id:
+            job.youtube_id = youtube_id
+            job.status = JobStatus.COMPLETED
+            job.current_step = "uploaded"
 
             new_episode = Episode(
-                series_name=series_name,
+                category=category,
                 episode_no=episode_no,
-                job_id=db_job.id,
-                title=video_title,
-                video_path=db_job.video_path,
+                job_id=job.id,
+                title=title,
+                video_path=job.video_path,
                 youtube_url=f"https://youtu.be/{youtube_id}",
                 youtube_video_id=youtube_id,
-                choices=json.dumps(choices, ensure_ascii=False) if choices else None,
+                vote_options=json.dumps(vote_options or [], ensure_ascii=False),
             )
             db.add(new_episode)
-            print(f"[{job_id}] Upload successful & Episode {episode_no} created: {youtube_id}")
+            print(f"[{job_id}] 업로드 완료 & Ep.{episode_no:02d} 생성: {youtube_id}")
         else:
-            db_job.status = JobStatus.FAILED
-            db_job.error_log = "YouTube upload failed"
+            job.status = JobStatus.FAILED
+            job.error_log = "YouTube 업로드 실패"
 
         db.commit()
 
     except Exception as e:
-        print(f"[{job_id}] Upload Task Failed: {str(e)}")
-        if db_job:
-            db_job.status = JobStatus.FAILED
-            db_job.error_log = f"Upload Error: {str(e)}"
+        print(f"[{job_id}] Upload 실패: {e}")
+        if job:
+            job.status = JobStatus.FAILED
+            job.error_log = f"Upload Error: {e}"
             db.commit()
     finally:
         db.close()
+
+
+def _load_hooking_line(video_path: str) -> str:
+    """video_path 기반으로 script.json에서 후킹 대사를 로드."""
+    import os, json
+    if not video_path:
+        return ""
+    script_path = os.path.join(os.path.dirname(video_path), "script.json")
+    if not os.path.exists(script_path):
+        return ""
+    try:
+        with open(script_path, encoding="utf-8") as f:
+            data = json.load(f)
+        beats = data.get("beats", [])
+        hooking = next((b for b in beats if b.get("beat") == "후킹"), None)
+        return hooking.get("dialogue", "")[:30] if hooking else ""
+    except Exception:
+        return ""

@@ -114,19 +114,11 @@ postgres:   memory: 1G
 - [ ] 퍼펫 에셋 제작 완료 후 **수동 1편 실제 렌더링** → 업로드해 톤·길이·자막·후킹 검증
 
 ### Phase 2 — 비동기 워커 & 상태 관리 (2주)
-- [ ] FastAPI `/jobs` POST → Job ID 즉시 반환 (3-sec ACK)
-- [ ] RQ 워커: `render_queue` / `upload_queue` 분리
-- [ ] PostgreSQL 스키마:
-  ```
-  jobs(id, status, current_step, retry_count, error_log, created_at, ...)
-  episodes(id, category, episode_no, script_id, video_path, youtube_id, ...)
-    -- category = 직장 | 욕망 | 부부 | 일상  (v1의 'series' 대체)
-  topics(id, category, title, source, status)   -- 아키타입 뱅크/제보/트렌드 소재 풀
-  votes(episode_id, choice_key, count, snapshot_at)  -- 다음 본심 주제 투표
-  submissions(id, raw_text, consent, status, used_episode_id)  -- 시청자 제보
-  ```
-- [ ] 재시도 정책: 지수 백오프(1m→5m→30m), 3회 실패 시 Slack 알람
-- [ ] **멱등키:** `job_id`를 YouTube 업로드 메타에 박아 중복 업로드 차단
+- [x] FastAPI `/jobs` POST → Job ID 즉시 반환, category/episode_no 파라미터
+- [x] RQ 워커: `render_queue` / `upload_queue` 분리 유지
+- [x] PostgreSQL 스키마 v2: `jobs`, `episodes`(category), `topics`, `votes`, `submissions` → `db/models.py`, `docker/init.sql`
+- [x] 재시도 정책: 지수 백오프(1m→5m→30m), 3회 실패 시 `send_error_alert` Slack 알람
+- [x] **멱등키:** `job_id`를 YouTube 설명에 `ref:{job_id}` 형식으로 포함
 
 ### Phase 3 — Slack Human-in-the-loop (1.5주)
 - [ ] Slack App + Interactive Components URL = `https://<ngrok>/slack/actions`

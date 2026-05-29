@@ -7,7 +7,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://ai_theater:ai_theater@localhost/ai_theater_db",
+    "postgresql://pangi:pangi@localhost/pangi_db",
 )
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
