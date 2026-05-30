@@ -12,6 +12,21 @@ _BASE_DIR  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _CLIPS_DIR = os.getenv("PANGI_CLIPS_DIR",  "assets/pang/clips")
 _EYES_DIR  = os.getenv("PANGI_EYES_DIR",   "assets/pang/eyes")
 _BASE_BODY = os.getenv("PANGI_BODY",        "assets/pang/base/body_front.png")
+_SFX_DIR   = os.getenv("PANGI_SFX_DIR",     "assets/sfx")
+
+# v4 §2.6(2) 효과음(SFX) 맵 — 비트 타입별 비트 시작점에 자동 삽입.
+# 파일이 존재할 때만 적용(없으면 무음 스킵).
+_SFX_BY_BEAT = {
+    "후킹":    "hook.wav",      # 시선 끄는 "확!"
+    "본심수신": "signal.wav",    # 시그니처 신호음 "삐빅 📶"
+    "꿀팁3단":  "tip.wav",       # 꿀팁 등장 "딩!"·"두구두구"
+    "마무리":   "punch.wav",     # 펀치라인·반전 임팩트 "쾅"
+}
+# 감정 오버라이드 — 젤리/멍함 허당 개그: 신호 끊김음 "띠로링~"
+_SFX_BY_EMOTION = {
+    "멍함":   "glitch.wav",
+    "재부팅": "glitch.wav",
+}
 
 _CATEGORY_FILE = {
     "직장": "work.yaml",
@@ -344,6 +359,39 @@ def _mix_bgm(video_path: str, bgm_path: str):
             os.remove(tmp)
 
 
+def _beat_sfx(beat_name: str, emotion: str) -> str | None:
+    """비트/감정에 매핑된 SFX 경로. 감정 오버라이드 우선, 파일 없으면 None."""
+    filename = _SFX_BY_EMOTION.get(emotion) or _SFX_BY_BEAT.get(beat_name)
+    if not filename:
+        return None
+    path = os.path.join(_SFX_DIR, filename)
+    return path if os.path.exists(path) else None
+
+
+def _mix_sfx(video_path: str, sfx_path: str, volume: float = 0.6):
+    """비트 시작점(t=0)에 SFX를 기존 오디오 위로 믹싱 (in-place)."""
+    tmp = video_path.replace(".mp4", "_sfx.mp4")
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", video_path,
+        "-i", sfx_path,
+        "-filter_complex",
+        f"[1:a]volume={volume}[sfx];"
+        f"[0:a][sfx]amix=inputs=2:duration=first:dropout_transition=0[a]",
+        "-map", "0:v", "-map", "[a]",
+        "-c:v", "copy", "-c:a", "aac",
+        tmp,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode == 0:
+        os.replace(tmp, video_path)
+        print(f"    SFX 삽입: {os.path.basename(sfx_path)}")
+    else:
+        print(f"    [WARN] SFX 삽입 실패 — 원본 유지: {result.stderr[:100]}")
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
 def _prepend_intro(video_path: str, intro_path: str):
     """인트로 클립을 영상 앞에 삽입 (in-place)."""
     tmp = video_path.replace(".mp4", "_with_intro.mp4")
@@ -407,6 +455,11 @@ def render_pangi_short(
             mode = "정적 표정" if has_expr else "배경만"
             print(f"  [{beat_name}] 클립 없음 — {mode} 폴백 ({emotion})")
             _render_beat_fallback(bg_path, audio, subtitle, out, style=style, emotion=emotion)
+
+        # v4 §2.6(2): 비트 시작점에 SFX 자동 삽입 (파일 있을 때만)
+        sfx = _beat_sfx(beat_name, emotion)
+        if sfx:
+            _mix_sfx(out, sfx)
 
         beat_paths.append(out)
         print(f"    → {out}")

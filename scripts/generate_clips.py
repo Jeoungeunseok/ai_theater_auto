@@ -19,7 +19,6 @@ except ImportError:
 _BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _KLING_URL  = "https://api.klingai.com"
 _CHAR_IMAGE = os.getenv("PANGI_BODY", "assets/pang/base/body_front.png")
-_EYES_DIR   = os.getenv("PANGI_EYES_DIR", "assets/pang/eyes")
 
 # ── 감정 영문 설명 ────────────────────────────────────────
 _EMOTION_EN = {
@@ -76,29 +75,33 @@ def _encode_image(path: str) -> str:
 
 
 def _build_prompt(beat_name: str, emotion: str, dialogue_excerpt: str) -> str:
+    # v4 §2.3 일관성 — 외형(얼굴 구조·비율·색)은 레퍼런스 이미지로 고정하고,
+    # 프롬프트는 감정 표정·안테나·모션만 지정한다. (팡이 = 와이파이 의인화, "파란 로봇" 아님)
     emotion_desc = _EMOTION_EN.get(emotion, "neutral expression")
     motion_desc  = _BEAT_MOTION.get(beat_name, "talking expressively")
     return (
-        f"팡이, a cute small chubby blue 3D animated Wi-Fi robot character, "
-        f"with large round black eyes, small Wi-Fi signal antennas on head, smooth blue body. "
-        f"{emotion_desc}. {motion_desc}. "
-        f"Clean simple background, 3D cartoon animation style, vertical 9:16 format, "
+        f"팡이(Pangi), an anthropomorphic Wi-Fi signal mascot character. "
+        f"Keep the exact same character design, face structure, body proportions and colors "
+        f"as the reference image — do NOT redesign the character. "
+        f"Only animate the expression and the signal antenna: {emotion_desc}. "
+        f"Motion: {motion_desc}. "
+        f"3D cartoon animation style, clean simple background, vertical 9:16 format, "
         f"character centered in frame."
     )
 
 
-def _submit_task(char_image_b64: str, emotion_image_b64: str,
-                 prompt: str, duration_sec: int) -> str:
+def _submit_task(char_image_b64: str, prompt: str, duration_sec: int) -> str:
     """Kling 작업 제출 → task_id 반환."""
     # Kling은 최대 10초 단위 — 5초 or 10초
     kling_duration = "10" if duration_sec >= 10 else "5"
 
+    # v4 §2.3: 마스터 레퍼런스(image) 1장만 주입해 캐릭터를 고정.
+    # 감정은 프롬프트로 지정하므로 부분(눈) 이미지를 image_tail로 넣지 않는다.
     body = {
         "model_name": "kling-v1-5",
         "image": char_image_b64,
-        "image_tail": emotion_image_b64,  # 감정 표정을 끝 프레임 레퍼런스로
         "prompt": prompt,
-        "negative_prompt": "human, realistic, text, watermark, blurry",
+        "negative_prompt": "different character, redesign, human, realistic, text, watermark, blurry",
         "cfg_scale": 0.5,
         "mode": "std",
         "duration": kling_duration,
@@ -163,13 +166,7 @@ def generate_beat_clip(beat: dict, output_path: str,
     dialogue   = beat.get("dialogue", "")
     duration   = beat.get("duration_sec", 5)
 
-    emotion_img_path = os.path.join(_EYES_DIR, f"{emotion}.png")
-    if not os.path.exists(emotion_img_path):
-        # 감정 이미지 없으면 캐릭터 이미지 재사용
-        emotion_img_path = char_path
-
     char_b64   = _encode_image(char_path)
-    emotion_b64 = _encode_image(emotion_img_path)
     prompt     = _build_prompt(beat_name, emotion, dialogue[:50])
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
@@ -177,7 +174,7 @@ def generate_beat_clip(beat: dict, output_path: str,
     # 10초 이하 → 1회 생성
     if duration <= 10:
         print(f"    Kling 제출: [{beat_name}/{emotion}] {duration}초")
-        task_id = _submit_task(char_b64, emotion_b64, prompt, duration)
+        task_id = _submit_task(char_b64, prompt, duration)
         url = _poll_task(task_id)
         _download(url, output_path)
 
@@ -189,7 +186,7 @@ def generate_beat_clip(beat: dict, output_path: str,
         for i in range(n_clips):
             part_path = output_path.replace(".mp4", f"_part{i}.mp4")
             print(f"    Kling 제출: [{beat_name}/{emotion}] part {i+1}/{n_clips}")
-            task_id = _submit_task(char_b64, emotion_b64, prompt, 10)
+            task_id = _submit_task(char_b64, prompt, 10)
             url = _poll_task(task_id)
             _download(url, part_path)
             part_paths.append(part_path)
