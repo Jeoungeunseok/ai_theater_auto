@@ -122,14 +122,14 @@ def produce_video_task(job_id: str, topic: str, category: str = "직장", episod
         # 2. Kling I2V 클립 (⭐ 최대 비용 — 새로 생성된 클립만 과금)
         _step(db, job, "generating_clips")
         clips_dir = os.path.join(tmp_dir, "clips")
-        if os.getenv("KLING_ACCESS_KEY_ID"):
+        if os.getenv("FAL_KEY"):
             before = set(os.listdir(clips_dir)) if os.path.isdir(clips_dir) else set()
             clip_paths = generate_all_clips(script, clips_dir)
             for p in clip_paths:
                 if os.path.basename(p) not in before:
                     record_cost("i2v")
         else:
-            print(f"[{job_id}] KLING 키 미설정 — I2V 건너뛰고 폴백 렌더")
+            print(f"[{job_id}] FAL_KEY 미설정 — I2V 건너뛰고 폴백 렌더")
 
         # 3. 보이스
         _step(db, job, "generating_voice")
