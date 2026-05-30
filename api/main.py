@@ -15,6 +15,8 @@ from db.database import get_db
 from db.models import Job, JobStatus, Submission
 from api.slack import verify_slack_signature
 from scripts.topic_engine import add_submission
+from scripts.daily_cost import incr_regen, regen_limit_reached, regen_limit
+from worker.slack_notifier import send_regen_limit_warning
 
 app = FastAPI(title="팡이 API")
 
@@ -73,8 +75,9 @@ async def create_job(body: JobCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_job)
 
+    # v4 §3.3: 가장 싼 단계(대본)부터 게이트 — 비싼 I2V는 대본 승인 후에만
     render_queue.enqueue(
-        "worker.tasks.create_video_task",
+        "worker.tasks.create_script_task",
         str(job_id),
         body.topic,
         body.category,
@@ -137,6 +140,35 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
     if not job:
         return {"ok": False, "error": "Job not found"}
 
+    # ── 대본 게이트 (v4 §3.3, 가장 싼 단계) ────────────────
+    if action_id == "approve_script":
+        # 대본 승인 → 비싼 제작 단계(I2V·렌더) 착수
+        job.current_step = "script_approved"
+        db.commit()
+        render_queue.enqueue(
+            "worker.tasks.produce_video_task",
+            str(job_id),
+            job.topic,
+            job.category,
+            job.episode_no,
+        )
+        return {"ok": True}
+
+    elif action_id == "regenerate_script":
+        if not _guard_regen(job):
+            return {"ok": True}
+        job.current_step = "regenerating_script"
+        db.commit()
+        render_queue.enqueue(
+            "worker.tasks.create_script_task",
+            str(job_id),
+            job.topic,
+            job.category,
+            job.episode_no,
+        )
+        return {"ok": True}
+
+    # ── 최종 영상 게이트 ───────────────────────────────────
     if action_id == "approve_video":
         job.current_step = "approved"
         vote_options = json.loads(job.vote_options) if job.vote_options else []
@@ -155,12 +187,14 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
         return {"ok": True}  # 모달 오픈 후 즉시 응답
 
     elif action_id == "regenerate_video":
+        if not _guard_regen(job):
+            return {"ok": True}
         job.status = JobStatus.PENDING
         job.current_step = "regenerating"
         job.retry_count = 0
         job.error_log = None
         render_queue.enqueue(
-            "worker.tasks.create_video_task",
+            "worker.tasks.produce_video_task",
             str(job_id),
             job.topic,
             job.category,
@@ -169,6 +203,16 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
 
     db.commit()
     return {"ok": True}
+
+
+def _guard_regen(job) -> bool:
+    """v4 §3.5: 재생성 상한 가드. 한도 도달 시 Slack 경고 후 False(차단)."""
+    job_id = str(job.id)
+    if regen_limit_reached(job_id):
+        send_regen_limit_warning(job_id, job.topic, regen_limit())
+        return False
+    incr_regen(job_id)
+    return True
 
 
 def _open_reject_modal(trigger_id: str, job_id: str):

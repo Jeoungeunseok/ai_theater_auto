@@ -63,6 +63,66 @@ def send_approval_message(job_id: str, topic: str, video_path: str):
         print(f"[WARN] Slack 메시지 전송 실패: {e}")
 
 
+def send_script_approval(job_id: str, topic: str, script: dict):
+    """v4 §3.3 — 대본 게이트(가장 싼 단계). 비싼 I2V 전에 대본부터 슬랙 승인."""
+    client = _client()
+    if not client:
+        print("[WARN] SLACK_BOT_TOKEN 미설정 — 대본 게이트 자동 통과")
+        return
+
+    beat_lines = "\n".join(
+        f"*[{b.get('beat','')}]* ({b.get('emotion','')}) {b.get('dialogue','')}"
+        for b in script.get("beats", [])
+    )
+    text = f"*📜 대본 확인 — {topic}*\nID: `{job_id}`\n\n{beat_lines}"
+
+    blocks = [
+        {"type": "section", "text": {"type": "mrkdwn", "text": text}},
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "대본 승인 (제작 시작)"},
+                    "style": "primary",
+                    "value": job_id,
+                    "action_id": "approve_script",
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "대본 재생성"},
+                    "value": job_id,
+                    "action_id": "regenerate_script",
+                },
+            ],
+        },
+    ]
+    try:
+        client.chat_postMessage(channel=_SLACK_CHANNEL, blocks=blocks, text=f"대본 확인: {topic}")
+    except SlackApiError as e:
+        print(f"[WARN] 대본 게이트 메시지 전송 실패: {e}")
+
+
+def send_regen_limit_warning(job_id: str, topic: str, limit: int):
+    """v4 §3.5 — 에피소드당 재생성 상한 도달 경고."""
+    client = _client()
+    if not client:
+        print(f"[COST] Job {job_id} 재생성 상한({limit}) 도달 — 재생성 차단")
+        return
+    try:
+        client.chat_postMessage(
+            channel=_SLACK_CHANNEL,
+            text=(
+                f":warning: *이번 편 리롤 한도 도달*\n"
+                f"주제: {topic}\nID: `{job_id}`\n"
+                f"재생성 {limit}회 초과 — 추가 재생성이 차단되었습니다. "
+                f"승인하거나 반려해주세요."
+            ),
+        )
+    except SlackApiError as e:
+        print(f"[WARN] 리롤 한도 경고 전송 실패: {e}")
+
+
 def send_error_alert(job_id: str, topic: str, error: str, retry_count: int):
     """3회 실패 시 Slack 에러 알람."""
     client = _client()

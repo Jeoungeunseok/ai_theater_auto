@@ -273,10 +273,12 @@ def _render_beat_fallback(
 def _render_beat_with_kling(
     clip_path: str, audio_path: str, subtitle: str,
     output_path: str, style: dict = None, duration_sec: int = None,
+    emphasis: str = None,
 ):
     """
     Kling 생성 클립에 TTS 오디오 교체 + 자막 합성.
     클립이 beat보다 길면 duration_sec 기준으로 트림.
+    v4 §2.6(3): emphasis 단어가 있으면 본 자막 위에 강조색·큰 글씨로 한 줄 더.
     """
     style = style or _DEFAULT_STYLE
     codec = _video_codec()
@@ -285,8 +287,10 @@ def _render_beat_with_kling(
 
     tc = style["text_color"]
     bc = style["border_color"]
+    ac = style.get("accent_color", _DEFAULT_STYLE["accent_color"])
     text_hex   = f"#{tc[0]:02x}{tc[1]:02x}{tc[2]:02x}"
     border_hex = f"#{bc[0]:02x}{bc[1]:02x}{bc[2]:02x}"
+    accent_hex = f"#{ac[0]:02x}{ac[1]:02x}{ac[2]:02x}"
 
     safe_sub = subtitle.replace("'", "\\'").replace(":", r"\:")[:40]
     drawtext = (
@@ -299,6 +303,13 @@ def _render_beat_with_kling(
     vf_parts = ["scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"]
     if drawtext:
         vf_parts.append(drawtext)
+        if emphasis:
+            safe_emph = emphasis.replace("'", "\\'").replace(":", r"\:")[:12]
+            vf_parts.append(
+                f"drawtext=fontfile='{font_escaped}':text='{safe_emph}':"
+                f"fontsize=72:fontcolor={accent_hex}:borderw=4:bordercolor={border_hex}:"
+                f"x=(w-text_w)/2:y=h*0.72"
+            )
     vf = ",".join(vf_parts)
 
     cmd = [
@@ -434,6 +445,7 @@ def render_pangi_short(
     for i, beat in enumerate(beats):
         audio     = os.path.join(voice_dir, f"beat_{i:02d}.mp3")
         subtitle  = beat.get("dialogue", "")
+        emphasis  = beat.get("emphasis", "")
         emotion   = beat.get("emotion", "평온")
         beat_name = beat.get("beat", "")
         duration  = beat.get("duration_sec")
@@ -446,7 +458,8 @@ def render_pangi_short(
         if os.path.exists(kling_clip):
             print(f"  [{beat_name}] Kling 클립 사용")
             _render_beat_with_kling(kling_clip, audio, subtitle, out,
-                                    style=style, duration_sec=duration)
+                                    style=style, duration_sec=duration,
+                                    emphasis=emphasis)
         elif puppet:
             print(f"  [{beat_name}] 퍼펫 클립: {os.path.basename(puppet)}")
             _render_beat_with_puppet(bg_path, puppet, audio, subtitle, out, style=style)

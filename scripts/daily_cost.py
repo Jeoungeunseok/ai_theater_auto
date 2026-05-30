@@ -12,11 +12,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 _DAILY_LIMIT = float(os.getenv("DAILY_COST_LIMIT", "1.0"))
+# v4 §3.5: 에피소드(job)당 재생성 상한 — 리롤 폭주(곧 비용) 방지
+_MAX_REGEN = int(os.getenv("MAX_REGEN_PER_EPISODE", "5"))
 
-# gpt-4o-mini 추정 단가 (달러/call)
+# 추정 단가 (달러/call)
 _COST_PER_CALL = {
-    "script": 0.003,    # 약 2000 input + 500 output tokens
+    "script": 0.003,    # gpt-4o-mini 약 2000 input + 500 output tokens
     "background": 0.053, # gpt-image-2 medium
+    "image": 0.053,     # 컷별 후보 이미지 (gpt-image-2 medium)
+    "i2v": 0.28,        # ⭐ Kling I2V — 최대 비용 (컷당, 요금제 따라 변동)
     "thumbnail": 0.0,   # Pillow 로컬 생성
 }
 
@@ -58,6 +62,34 @@ def resume_queue():
     """임계치 초과로 정지된 큐를 수동 재개."""
     _redis().delete("queue_paused")
     print("[COST] 큐 재개")
+
+
+# ── 에피소드당 재생성 상한 (v4 §3.5) ─────────────────────
+
+def _regen_key(job_id: str) -> str:
+    return f"regen_count:{job_id}"
+
+
+def incr_regen(job_id: str) -> int:
+    """재생성 1회 기록 → 누적 횟수 반환."""
+    r = _redis()
+    key = _regen_key(job_id)
+    n = r.incr(key)
+    r.expire(key, 86400 * 7)  # 7일 후 자동 삭제
+    return int(n)
+
+
+def get_regen_count(job_id: str) -> int:
+    return int(_redis().get(_regen_key(job_id)) or 0)
+
+
+def regen_limit_reached(job_id: str) -> bool:
+    """이번 에피소드의 재생성 상한 도달 여부."""
+    return get_regen_count(job_id) >= _MAX_REGEN
+
+
+def regen_limit() -> int:
+    return _MAX_REGEN
 
 
 # ── 오늘 사용량 조회 ──────────────────────────────────────

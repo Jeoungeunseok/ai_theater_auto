@@ -156,7 +156,7 @@ def _schedule_next_episode(winner_topic: str, category: str, next_ep_no: int):
         db2.commit()
         db2.close()
 
-        q.enqueue("worker.tasks.create_video_task", job_id, winner_topic, category, next_ep_no)
+        q.enqueue("worker.tasks.create_script_task", job_id, winner_topic, category, next_ep_no)
         print(f"  → 다음 화 Ep.{next_ep_no:02d} 자동 큐 투입: {winner_topic}")
     except Exception as e:
         print(f"  [WARN] 다음 화 큐 투입 실패: {e}")

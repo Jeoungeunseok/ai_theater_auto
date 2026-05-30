@@ -75,16 +75,19 @@ beat 3 "꿀팁3단" (20초): 능청 코칭 꿀팁 3가지를 자연스럽게 이
 beat 4 "마무리"  (5초):  공범 윙크 + 다음 본심 투표 CTA
 {hook_examples}
 
+각 beat의 "emphasis"는 그 대사에서 화면에 크게 강조할 핵심 단어 1개입니다.
+반드시 해당 dialogue 안에 실제로 등장하는 짧은 단어/구(2~6자)를 고르세요.
+
 반드시 아래 JSON 형식으로만 응답하세요 (beat는 정확히 4개):
 {{
   "episode_no": <int>,
   "category": "<카테고리>",
   "topic": "<주제>",
   "beats": [
-    {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>",               "duration_sec": 3}},
-    {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>",               "duration_sec": 2}},
-    {{"beat": "꿀팁3단", "emotion": "<감정>", "dialogue": "<꿀팁 3가지 연속 대사>","duration_sec": 20}},
-    {{"beat": "마무리",  "emotion": "<감정>", "dialogue": "<대사>",               "duration_sec": 5}}
+    {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>",               "emphasis": "<핵심 단어>", "duration_sec": 3}},
+    {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>",               "emphasis": "<핵심 단어>", "duration_sec": 2}},
+    {{"beat": "꿀팁3단", "emotion": "<감정>", "dialogue": "<꿀팁 3가지 연속 대사>","emphasis": "<핵심 단어>", "duration_sec": 20}},
+    {{"beat": "마무리",  "emotion": "<감정>", "dialogue": "<대사>",               "emphasis": "<핵심 단어>", "duration_sec": 5}}
   ],
   "vote_options": ["<다음 주제 후보 A>", "<다음 주제 후보 B>"]
 }}"""
