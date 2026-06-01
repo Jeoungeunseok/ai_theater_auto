@@ -6,7 +6,7 @@ from db.database import SessionLocal
 from db.models import Job, JobStatus, Episode
 from scripts.generate_script import generate_pangi_script
 from scripts.generate_clips import generate_all_clips
-from scripts.generate_voice import generate_pangi_voice
+from scripts.generate_voice import generate_pangi_voice, measure_beat_durations
 from scripts.generate_image import generate_background
 from scripts.render_short import render_pangi_short
 from scripts.daily_cost import is_queue_paused, record_cost
@@ -119,24 +119,34 @@ def produce_video_task(job_id: str, topic: str, category: str = "직장", episod
             generate_background(topic, category=category, output_path=bg_path)
             record_cost("background")
 
-        # 2. Kling I2V 클립 (⭐ 최대 비용 — 새로 생성된 클립만 과금)
+        # 2. TTS 보이스 (v5 §2.1: TTS-FIRST — 길이를 먼저 확정)
+        _step(db, job, "generating_voice")
+        voice_dir = os.path.join(tmp_dir, "voice")
+        generate_pangi_voice(script_path, output_dir=voice_dir)
+
+        # 3. TTS 길이 측정 → beat별 duration_sec 업데이트 (tts + 0.4s 여유)
+        _step(db, job, "measuring_tts_duration")
+        n_beats = len(script.get("beats", []))
+        tts_durations = measure_beat_durations(voice_dir, n_beats)
+        for i, beat in enumerate(script["beats"]):
+            beat["tts_sec"] = round(tts_durations[i], 3)
+            beat["duration_sec"] = round(tts_durations[i] + 0.4, 3)
+        with open(script_path, "w", encoding="utf-8") as f:
+            json.dump(script, f, ensure_ascii=False, indent=2)
+
+        # 4. Kling I2V 클립 (TTS 길이 기반 5s/10s 결정, 무음, ⭐ 최대 비용)
         _step(db, job, "generating_clips")
         clips_dir = os.path.join(tmp_dir, "clips")
         if os.getenv("FAL_KEY"):
             before = set(os.listdir(clips_dir)) if os.path.isdir(clips_dir) else set()
-            clip_paths = generate_all_clips(script, clips_dir)
+            clip_paths = generate_all_clips(script, clips_dir, tts_durations=tts_durations)
             for p in clip_paths:
                 if os.path.basename(p) not in before:
                     record_cost("i2v")
         else:
             print(f"[{job_id}] FAL_KEY 미설정 — I2V 건너뛰고 폴백 렌더")
 
-        # 3. 보이스
-        _step(db, job, "generating_voice")
-        voice_dir = os.path.join(tmp_dir, "voice")
-        generate_pangi_voice(script_path, output_dir=voice_dir)
-
-        # 4. 렌더링 (clips 있으면 Kling, 없으면 폴백 자동 선택)
+        # 5. 렌더링 (clips 있으면 Kling, 없으면 폴백 자동 선택)
         _step(db, job, "rendering")
         output_path = os.path.join(tmp_dir, "final.mp4")
         render_pangi_short(

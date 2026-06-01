@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import re
+import subprocess
 import yaml
 import edge_tts
 from dotenv import load_dotenv
@@ -83,6 +84,25 @@ def generate_pangi_voice(script_path: str, output_dir: str):
         data = json.load(f)
     beats = data.get("beats", [])
     asyncio.run(_generate_beats(beats, output_dir))
+
+
+def _audio_duration(path: str) -> float:
+    """ffprobe로 오디오 파일 실제 길이(초) 반환."""
+    result = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", path],
+        capture_output=True, text=True,
+    )
+    data = json.loads(result.stdout)
+    return float(data["format"]["duration"])
+
+
+def measure_beat_durations(voice_dir: str, n_beats: int) -> list[float]:
+    """beat_00.mp3 ~ beat_{n-1}.mp3 실제 길이(초) 목록 반환."""
+    durations = []
+    for i in range(n_beats):
+        path = os.path.join(voice_dir, f"beat_{i:02d}.mp3")
+        durations.append(_audio_duration(path))
+    return durations
 
 
 if __name__ == "__main__":

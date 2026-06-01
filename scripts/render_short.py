@@ -322,10 +322,13 @@ def _render_beat_with_kling(
         "-c:v", codec[0], *codec[1:],
         "-c:a", "aac",
         "-pix_fmt", "yuv420p",
-        "-shortest",        # 오디오 길이 기준으로 맞춤
     ]
     if duration_sec:
+        # TTS-FIRST: duration_sec = tts_sec + 0.4 → 0.4초 여유를 살리기 위해
+        # -shortest 대신 -t 단독 사용 (오디오 끝 후 0.4초 영상이 묵음으로 남음)
         cmd += ["-t", str(duration_sec)]
+    else:
+        cmd += ["-shortest"]  # duration 미정 시 오디오 길이 기준
     cmd.append(output_path)
 
     result = subprocess.run(cmd, capture_output=True, text=True)

@@ -70,8 +70,13 @@ def _check_key():
         raise ValueError("FAL_KEY 미설정 — fal.ai API 키를 .env에 추가하세요")
 
 
+def _kling_duration(tts_sec: float) -> int:
+    """TTS 길이로 Kling 생성 길이(5s/10s) 결정 — v5 §2.1 길이 결정 규칙."""
+    return 5 if tts_sec <= 4.5 else 10
+
+
 def _generate_clip(image_url: str, prompt: str, duration_sec: int) -> str:
-    """fal.ai에 I2V 요청 → 영상 URL 반환."""
+    """fal.ai에 I2V 요청 → 영상 URL 반환. generate_audio=false(무음) 고정."""
     duration = "10" if duration_sec >= 10 else "5"
 
     handler = fal_client.submit(
@@ -82,6 +87,7 @@ def _generate_clip(image_url: str, prompt: str, duration_sec: int) -> str:
             "negative_prompt": "different character, redesign, human, realistic, text, watermark, blurry",
             "duration": duration,
             "aspect_ratio": "9:16",
+            "generate_audio": False,
         },
     )
     result = handler.get()
@@ -99,14 +105,19 @@ def _download(url: str, output_path: str):
 # ── beat 클립 생성 ────────────────────────────────────────
 
 def generate_beat_clip(beat: dict, output_path: str,
-                       char_image_path: str = None) -> bool:
-    """beat 1개 → fal.ai Kling 클립 생성. 20초 beat는 10초 × 2클립 concat."""
+                       char_image_path: str = None,
+                       tts_sec: float = None) -> bool:
+    """beat 1개 → fal.ai Kling 클립 생성. 20초 beat는 10초 × 2클립 concat.
+
+    tts_sec: 실측 TTS 길이 — 있으면 v5 길이 결정 규칙으로 5s/10s 선택.
+    없으면 beat.duration_sec 폴백.
+    """
     _check_key()
 
     char_path = char_image_path or _CHAR_IMAGE
     beat_name = beat.get("beat", "꿀팁3단")
     emotion   = beat.get("emotion", "평온")
-    duration  = beat.get("duration_sec", 5)
+    duration  = _kling_duration(tts_sec) if tts_sec is not None else beat.get("duration_sec", 5)
     prompt    = _build_prompt(beat_name, emotion)
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
@@ -148,17 +159,23 @@ def generate_beat_clip(beat: dict, output_path: str,
 
 
 def generate_all_clips(script_data: dict, output_dir: str,
-                       char_image_path: str = None) -> list[str]:
-    """스크립트의 모든 beat에 대해 fal.ai 클립 생성."""
+                       char_image_path: str = None,
+                       tts_durations: list[float] = None) -> list[str]:
+    """스크립트의 모든 beat에 대해 fal.ai 클립 생성.
+
+    tts_durations: measure_beat_durations()로 측정한 실측 TTS 길이 목록.
+    제공 시 v5 §2.1 규칙(≤4.5s→5s, else→10s)으로 Kling 생성 길이 결정.
+    """
     os.makedirs(output_dir, exist_ok=True)
     clip_paths = []
 
     for i, beat in enumerate(script_data.get("beats", [])):
         out = os.path.join(output_dir, f"beat_{i:02d}.mp4")
+        tts_sec = tts_durations[i] if tts_durations and i < len(tts_durations) else None
         if os.path.exists(out):
             print(f"  beat_{i:02d} 기존 클립 재사용")
         else:
-            generate_beat_clip(beat, out, char_image_path)
+            generate_beat_clip(beat, out, char_image_path, tts_sec=tts_sec)
         clip_paths.append(out)
 
     return clip_paths
