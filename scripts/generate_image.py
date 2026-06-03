@@ -9,12 +9,23 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 _QUALITY = os.getenv("BG_IMAGE_QUALITY", "medium")
 
-# fal.ai Kling 이미지 생성 모델
-# elements(캐릭터 일관성) 지원 모델이어야 함 — fal.ai 대시보드에서 확인 후 설정:
-#   "fal-ai/kling-image/v2-master"  : img2img / image_url 레퍼런스 지원
-#   "fal-ai/kling-image/v3"         : 최신, elements 파라미터 지원 여부 확인 필요
-# ⚠️ image_url 파라미터명은 모델별로 다를 수 있음. 실제 API 확인 후 PANGI_IMAGE_REF_PARAM으로 오버라이드 가능.
+# fal.ai Kling 이미지 생성 모델 설정
+#
+# ⭐ 캐릭터 잠금의 핵심: "참고(image_url)" vs "잠금(elements)"
+#
+#   image_url 단일 레퍼런스 = 느슨한 참고 → 팡이 외형이 컷마다 흔들릴 수 있음
+#   elements / 멀티 레퍼런스  = 캐릭터 고정 → 팡이 외형을 실제로 잠금
+#
+# fal.ai 대시보드에서 모델 파라미터 확인 후 .env에서 설정:
+#   PANGI_IMAGE_MODEL     : elements 지원 모델 ID (예: "fal-ai/kling-image/v2-master")
+#   PANGI_IMAGE_USE_ELEMENTS=true : elements 배열 방식 사용 (권장)
+#   PANGI_IMAGE_ELEMENTS_PARAM    : elements 파라미터 이름 (fal.ai 대시보드 확인)
+#                                   예: "elements" / "reference_images" / "subject_references"
+#   PANGI_IMAGE_REF_PARAM         : 단일 이미지 파라미터 이름 (fallback, 기본 "image_url")
+#
 _IMAGE_MODEL = os.getenv("PANGI_IMAGE_MODEL", "fal-ai/kling-image/v2-master")
+_IMAGE_USE_ELEMENTS = os.getenv("PANGI_IMAGE_USE_ELEMENTS", "false").lower() == "true"
+_IMAGE_ELEMENTS_PARAM = os.getenv("PANGI_IMAGE_ELEMENTS_PARAM", "elements")
 _IMAGE_REF_PARAM = os.getenv("PANGI_IMAGE_REF_PARAM", "image_url")
 
 _CATEGORY_STYLE = {
@@ -119,6 +130,17 @@ def generate_cut_images(beat: dict, beat_idx: int, output_dir: str,
     print(f"    [이미지] beat_{beat_idx:02d} 레퍼런스 업로드...")
     image_url = fal_client.upload_file(char_path)
 
+    # elements 방식 = 캐릭터 잠금 / image_url 방식 = 느슨한 참고
+    # PANGI_IMAGE_USE_ELEMENTS=true + 올바른 elements 파라미터명으로 캐릭터 일관성 확보
+    if _IMAGE_USE_ELEMENTS:
+        ref_arg = {
+            _IMAGE_ELEMENTS_PARAM: [{"image_url": image_url, "weight": 1.0}]
+        }
+        print(f"    [이미지] elements 방식 ({_IMAGE_ELEMENTS_PARAM}) — 캐릭터 잠금 모드")
+    else:
+        ref_arg = {_IMAGE_REF_PARAM: image_url}
+        print(f"    [이미지] 단일 레퍼런스 방식 ({_IMAGE_REF_PARAM}) — elements 활성화 권장")
+
     paths = []
     for i in range(n_candidates):
         out_path = os.path.join(cut_dir, f"candidate_{i:02d}.webp")
@@ -129,7 +151,7 @@ def generate_cut_images(beat: dict, beat_idx: int, output_dir: str,
                 arguments={
                     "prompt": prompt,
                     "negative_prompt": negative_prompt,
-                    _IMAGE_REF_PARAM: image_url,  # 모델별 레퍼런스 파라미터 — 환경변수로 조정 가능
+                    **ref_arg,
                     "aspect_ratio": "9:16",
                     "num_images": 1,
                 },

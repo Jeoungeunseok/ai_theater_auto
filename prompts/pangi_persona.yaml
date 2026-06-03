@@ -41,25 +41,34 @@ emotions:
   과부하: { rate_mod: +15, pitch_mod: +10 }
   재부팅: { rate_mod:   0, pitch_mod:   0 }
 
-# 4-beat 에피소드 포맷 (총 30초)
+# 6-beat 에피소드 포맷 (총 약 30초)
+# 꿀팁을 1·2·3 세 개의 독립 컷으로 분리 — 10s×2 이음새 없애고 템포 살림
 episode_format:
   total_duration: 약 30초
   beats:
     - step: 1
       name: 후킹
-      duration: 3초
+      duration: 3~4초
       description: 도발적 본심 선언 — 시청자가 멈추게 만드는 한 줄
     - step: 2
       name: 본심수신
-      duration: 2초
+      duration: 2~3초
       description: 안테나 번쩍 — 팡이가 본심 주파수를 수신하는 순간
     - step: 3
-      name: 꿀팁3단
-      duration: 20초
-      description: 능청 코칭 꿀팁 3가지 연속 — 실제로 써먹을 수 있는 본심 해법
+      name: 꿀팁1
+      duration: 5~7초
+      description: 첫 번째 꿀팁 — 완결된 짧은 한 문장, 임팩트 있게
     - step: 4
+      name: 꿀팁2
+      duration: 5~7초
+      description: 두 번째 꿀팁 — 앞과 이어지되 독립적 문장
+    - step: 5
+      name: 꿀팁3
+      duration: 5~7초
+      description: 세 번째 꿀팁 — 반전 또는 핵심 하이라이트로 마무리
+    - step: 6
       name: 마무리
-      duration: 5초
+      duration: 4~5초
       description: 공범 윙크 + 다음 본심 투표 CTA
 
 categories:

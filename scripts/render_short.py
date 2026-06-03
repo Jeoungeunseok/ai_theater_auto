@@ -79,11 +79,20 @@ def _intro_path(category: str) -> str | None:
 
 # ── 공통 유틸 ─────────────────────────────────────────────
 
-def _black_bg(tmp_dir: str) -> str:
-    """폴백용 검은 배경 이미지 생성 (Kling 클립 없는 beat에서만 사용)."""
-    path = os.path.join(tmp_dir, "_black_bg.png")
+_CATEGORY_BG_COLOR = {
+    "직장": (41,  57,  100),   # 네이비
+    "욕망": (102, 51,  153),   # 퍼플
+    "부부": (220, 100,  85),   # 코랄
+    "일상": (80,  180, 160),   # 민트
+}
+
+
+def _black_bg(tmp_dir: str, category: str = "") -> str:
+    """폴백용 단색 배경 이미지 생성 (Kling 클립 없는 beat에서만 사용)."""
+    color = _CATEGORY_BG_COLOR.get(category, (30, 30, 30))
+    path = os.path.join(tmp_dir, f"_fallback_bg_{category or 'default'}.png")
     if not os.path.exists(path):
-        Image.new("RGB", (1080, 1920), (0, 0, 0)).save(path)
+        Image.new("RGB", (1080, 1920), color).save(path)
     return path
 
 def _video_codec() -> list[str]:
@@ -475,11 +484,11 @@ def render_pangi_short(
                                     style=style, duration_sec=duration,
                                     emphasis=emphasis)
         elif puppet:
-            resolved_bg = bg_path or _black_bg(tmp_dir)
+            resolved_bg = bg_path or _black_bg(tmp_dir, category)
             print(f"  [{beat_name}] 퍼펫 클립: {os.path.basename(puppet)}")
             _render_beat_with_puppet(resolved_bg, puppet, audio, subtitle, out, style=style)
         else:
-            resolved_bg = bg_path or _black_bg(tmp_dir)
+            resolved_bg = bg_path or _black_bg(tmp_dir, category)
             has_expr = _expression_png(emotion) is not None
             mode = "정적 표정" if has_expr else "배경만"
             print(f"  [{beat_name}] 클립 없음 — {mode} 폴백 ({emotion})")
