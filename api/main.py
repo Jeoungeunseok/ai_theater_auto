@@ -142,11 +142,11 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
 
     # ── 대본 게이트 (v4 §3.3, 가장 싼 단계) ────────────────
     if action_id == "approve_script":
-        # 대본 승인 → 비싼 제작 단계(I2V·렌더) 착수
+        # 대본 승인 → TTS + 이미지 후보 생성 → 이미지 게이트
         job.current_step = "script_approved"
         db.commit()
         render_queue.enqueue(
-            "worker.tasks.produce_video_task",
+            "worker.tasks.produce_images_task",
             str(job_id),
             job.topic,
             job.category,
@@ -166,6 +166,53 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
             job.category,
             job.episode_no,
         )
+        return {"ok": True}
+
+    # ── 이미지 게이트 — 컷별 후보 선택 ───────────────────────
+    if action_id.startswith("select_image_"):
+        # value: "{job_id}|{beat_idx}|{image_path}"
+        parts = action["value"].split("|", 2)
+        if len(parts) != 3:
+            return {"ok": False, "error": "Invalid select_image value"}
+        _, beat_idx_str, image_path = parts
+        beat_idx = int(beat_idx_str)
+
+        tmp_dir = f"tmp/aitheater/{job_id}"
+        script_path = os.path.join(tmp_dir, "script.json")
+        if not os.path.exists(script_path):
+            return {"ok": False, "error": "script.json not found"}
+
+        with open(script_path, encoding="utf-8") as f:
+            script = json.load(f)
+        n_beats = len(script.get("beats", []))
+
+        # 선택 저장
+        selected_path = os.path.join(tmp_dir, "selected_images.json")
+        selected = {}
+        if os.path.exists(selected_path):
+            with open(selected_path, encoding="utf-8") as f:
+                selected = json.load(f)
+        selected[str(beat_idx)] = image_path
+        with open(selected_path, "w", encoding="utf-8") as f:
+            json.dump(selected, f, ensure_ascii=False)
+
+        # 모든 beat 선택 완료 시 → I2V·렌더 단계 시작
+        if all(str(i) in selected for i in range(n_beats)):
+            job.current_step = "all_images_selected"
+            db.commit()
+            render_queue.enqueue(
+                "worker.tasks.produce_video_task",
+                str(job_id),
+                job.topic,
+                job.category,
+                job.episode_no,
+            )
+            print(f"[{job_id}] 전체 컷 이미지 선택 완료 → I2V 큐 투입")
+        else:
+            remaining = n_beats - len(selected)
+            print(f"[{job_id}] beat_{beat_idx} 선택 완료 ({remaining}컷 남음)")
+            db.commit()
+
         return {"ok": True}
 
     # ── 최종 영상 게이트 ───────────────────────────────────
@@ -193,8 +240,12 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
         job.current_step = "regenerating"
         job.retry_count = 0
         job.error_log = None
+        # 이미지부터 다시 — 이전 selected_images.json 삭제해서 선택 초기화
+        selected_path = os.path.join(f"tmp/aitheater/{job_id}", "selected_images.json")
+        if os.path.exists(selected_path):
+            os.remove(selected_path)
         render_queue.enqueue(
-            "worker.tasks.produce_video_task",
+            "worker.tasks.produce_images_task",
             str(job_id),
             job.topic,
             job.category,

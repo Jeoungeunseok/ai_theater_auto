@@ -144,6 +144,65 @@ def send_error_alert(job_id: str, topic: str, error: str, retry_count: int):
         print(f"[WARN] 에러 알람 전송 실패: {e}")
 
 
+def send_image_candidates(job_id: str, beat_idx: int, beat_name: str, emotion: str,
+                          candidate_paths: list[str], n_beats: int):
+    """컷별 이미지 후보 Slack 전송. 사용자가 하나 선택하면 I2V로 넘어간다.
+
+    후보 이미지 파일을 채널에 업로드한 뒤, 번호별 선택 버튼 메시지를 전송한다.
+    SLACK_BOT_TOKEN 미설정 시 자동 통과(body_front.png 폴백은 produce_video_task가 처리).
+    """
+    client = _client()
+    if not client:
+        print(f"[WARN] SLACK_BOT_TOKEN 미설정 — beat_{beat_idx} 이미지 게이트 자동 통과")
+        return
+
+    # 후보 이미지 채널 업로드
+    for i, path in enumerate(candidate_paths):
+        try:
+            client.files_upload_v2(
+                channel=_SLACK_CHANNEL,
+                file=path,
+                title=f"beat_{beat_idx:02d}_candidate_{i+1} ({beat_name}/{emotion})",
+            )
+        except SlackApiError as e:
+            print(f"[WARN] 이미지 업로드 실패 (candidate {i}): {e}")
+
+    # 선택 버튼 — action_id는 beat·후보 index 인코딩, value에 경로 담기
+    buttons = [
+        {
+            "type": "button",
+            "text": {"type": "plain_text", "text": f"이미지 {i+1}"},
+            "value": f"{job_id}|{beat_idx}|{path}",
+            "action_id": f"select_image_b{beat_idx}_c{i}",
+        }
+        for i, path in enumerate(candidate_paths)
+    ]
+
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    f"*컷 {beat_idx+1}/{n_beats} 이미지 선택* "
+                    f"— `{beat_name}` / {emotion}\n"
+                    f"ID: `{job_id}`\n어떤 이미지로 I2V를 진행할까요?"
+                ),
+            },
+        },
+        {"type": "actions", "elements": buttons},
+    ]
+
+    try:
+        client.chat_postMessage(
+            channel=_SLACK_CHANNEL,
+            blocks=blocks,
+            text=f"컷 {beat_idx+1}/{n_beats} 이미지 선택 — {beat_name}/{emotion}",
+        )
+    except SlackApiError as e:
+        print(f"[WARN] 이미지 후보 메시지 전송 실패: {e}")
+
+
 def send_vote_report(episode_no: int, votes: dict, next_topic: str = ""):
     """투표 결과 일일 리포트."""
     client = _client()

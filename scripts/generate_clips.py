@@ -160,11 +160,13 @@ def generate_beat_clip(beat: dict, output_path: str,
 
 def generate_all_clips(script_data: dict, output_dir: str,
                        char_image_path: str = None,
-                       tts_durations: list[float] = None) -> list[str]:
+                       tts_durations: list[float] = None,
+                       selected_images: dict = None) -> list[str]:
     """스크립트의 모든 beat에 대해 fal.ai 클립 생성.
 
     tts_durations: measure_beat_durations()로 측정한 실측 TTS 길이 목록.
-    제공 시 v5 §2.1 규칙(≤4.5s→5s, else→10s)으로 Kling 생성 길이 결정.
+    selected_images: {beat_idx_str: image_path} — 이미지 게이트에서 선택된 경로.
+                     제공 시 해당 beat는 선택 이미지를 I2V 입력으로 사용.
     """
     os.makedirs(output_dir, exist_ok=True)
     clip_paths = []
@@ -172,10 +174,11 @@ def generate_all_clips(script_data: dict, output_dir: str,
     for i, beat in enumerate(script_data.get("beats", [])):
         out = os.path.join(output_dir, f"beat_{i:02d}.mp4")
         tts_sec = tts_durations[i] if tts_durations and i < len(tts_durations) else None
+        beat_img = (selected_images or {}).get(str(i)) or char_image_path
         if os.path.exists(out):
             print(f"  beat_{i:02d} 기존 클립 재사용")
         else:
-            generate_beat_clip(beat, out, char_image_path, tts_sec=tts_sec)
+            generate_beat_clip(beat, out, beat_img, tts_sec=tts_sec)
         clip_paths.append(out)
 
     return clip_paths
