@@ -19,8 +19,12 @@ _SFX_DIR   = os.getenv("PANGI_SFX_DIR",     "assets/sfx")
 _SFX_BY_BEAT = {
     "후킹":    "hook.wav",      # 시선 끄는 "확!"
     "본심수신": "signal.wav",    # 시그니처 신호음 "삐빅 📶"
-    "꿀팁3단":  "tip.wav",       # 꿀팁 등장 "딩!"·"두구두구"
+    "꿀팁1":   "tip.wav",       # 꿀팁 첫 번째 등장 "딩!"
+    "꿀팁2":   None,            # 2·3번째 팁은 무음 — 흐름 끊지 않게
+    "꿀팁3":   None,
     "마무리":   "punch.wav",     # 펀치라인·반전 임팩트 "쾅"
+    # 레거시
+    "꿀팁3단":  "tip.wav",
 }
 # 감정 오버라이드 — 젤리/멍함 허당 개그: 신호 끊김음 "띠로링~"
 _SFX_BY_EMOTION = {
@@ -74,6 +78,13 @@ def _intro_path(category: str) -> str | None:
 
 
 # ── 공통 유틸 ─────────────────────────────────────────────
+
+def _black_bg(tmp_dir: str) -> str:
+    """폴백용 검은 배경 이미지 생성 (Kling 클립 없는 beat에서만 사용)."""
+    path = os.path.join(tmp_dir, "_black_bg.png")
+    if not os.path.exists(path):
+        Image.new("RGB", (1080, 1920), (0, 0, 0)).save(path)
+    return path
 
 def _video_codec() -> list[str]:
     if platform.system() == "Darwin":
@@ -376,7 +387,7 @@ def _mix_bgm(video_path: str, bgm_path: str):
 def _beat_sfx(beat_name: str, emotion: str) -> str | None:
     """비트/감정에 매핑된 SFX 경로. 감정 오버라이드 우선, 파일 없으면 None."""
     filename = _SFX_BY_EMOTION.get(emotion) or _SFX_BY_BEAT.get(beat_name)
-    if not filename:
+    if not filename:  # None 명시 또는 키 없음 모두 처리
         return None
     path = os.path.join(_SFX_DIR, filename)
     return path if os.path.exists(path) else None
@@ -430,9 +441,9 @@ def _prepend_intro(video_path: str, intro_path: str):
 def render_pangi_short(
     script_path: str,
     voice_dir: str,
-    bg_path: str,
     output_path: str,
     category: str = "일상",
+    bg_path: str = None,
 ):
     """팡이 에피소드 1편 렌더링: 퍼펫 클립 조립 → BGM → 인트로 → 최종 쇼츠 mp4."""
     with open(script_path, encoding="utf-8") as f:
@@ -464,13 +475,15 @@ def render_pangi_short(
                                     style=style, duration_sec=duration,
                                     emphasis=emphasis)
         elif puppet:
+            resolved_bg = bg_path or _black_bg(tmp_dir)
             print(f"  [{beat_name}] 퍼펫 클립: {os.path.basename(puppet)}")
-            _render_beat_with_puppet(bg_path, puppet, audio, subtitle, out, style=style)
+            _render_beat_with_puppet(resolved_bg, puppet, audio, subtitle, out, style=style)
         else:
+            resolved_bg = bg_path or _black_bg(tmp_dir)
             has_expr = _expression_png(emotion) is not None
             mode = "정적 표정" if has_expr else "배경만"
             print(f"  [{beat_name}] 클립 없음 — {mode} 폴백 ({emotion})")
-            _render_beat_fallback(bg_path, audio, subtitle, out, style=style, emotion=emotion)
+            _render_beat_fallback(resolved_bg, audio, subtitle, out, style=style, emotion=emotion)
 
         # v4 §2.6(2): 비트 시작점에 SFX 자동 삽입 (파일 있을 때만)
         sfx = _beat_sfx(beat_name, emotion)
@@ -499,7 +512,6 @@ if __name__ == "__main__":
     render_pangi_short(
         script_path="tmp/aitheater/script.json",
         voice_dir="tmp/aitheater/voice",
-        bg_path="assets/bg/ep01_workplace.webp",
         output_path="tmp/aitheater/ep01_final.mp4",
         category="직장",
     )

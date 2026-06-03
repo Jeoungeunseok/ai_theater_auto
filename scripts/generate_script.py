@@ -68,26 +68,31 @@ def _build_system_prompt(persona: dict, category_cfg: dict) -> str:
 
 [사용 가능한 감정] {emotions}
 
-[에피소드 포맷 — 총 약 30초, 4-beat]
-beat 1 "후킹"    (3초):  시청자가 멈추게 만드는 도발적 본심 선언 한 줄
-beat 2 "본심수신" (2초):  팡이가 본심 주파수 수신 — 안테나 번쩍 멘트
-beat 3 "꿀팁3단" (20초): 능청 코칭 꿀팁 3가지를 자연스럽게 이어서. 각 팁 사이 짧은 호흡 포함
-beat 4 "마무리"  (5초):  공범 윙크 + 다음 본심 투표 CTA
+[에피소드 포맷 — 총 약 30초, 6-beat]
+beat 1 "후킹"    (3~4초):  시청자가 멈추게 만드는 도발적 본심 선언 한 줄
+beat 2 "본심수신" (2~3초):  팡이가 본심 주파수 수신 — 안테나 번쩍 멘트
+beat 3 "꿀팁1"  (5~7초):  꿀팁 첫 번째 — 임팩트 있게 한 가지만, 완결된 문장
+beat 4 "꿀팁2"  (5~7초):  꿀팁 두 번째 — 앞과 자연스럽게 이어지되 독립적 문장
+beat 5 "꿀팁3"  (5~7초):  꿀팁 세 번째 — 마지막 반전 또는 핵심 하이라이트, 완결
+beat 6 "마무리"  (4~5초):  공범 윙크 + 다음 본심 투표 CTA
 {hook_examples}
 
+⚠️ 꿀팁1·2·3은 각각 독립된 짧은 문장. 이어서 읽는 연속 대사 금지 — 컷이 따로 나뉘므로.
 각 beat의 "emphasis"는 그 대사에서 화면에 크게 강조할 핵심 단어 1개입니다.
 반드시 해당 dialogue 안에 실제로 등장하는 짧은 단어/구(2~6자)를 고르세요.
 
-반드시 아래 JSON 형식으로만 응답하세요 (beat는 정확히 4개):
+반드시 아래 JSON 형식으로만 응답하세요 (beat는 정확히 6개):
 {{
   "episode_no": <int>,
   "category": "<카테고리>",
   "topic": "<주제>",
   "beats": [
-    {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>",               "emphasis": "<핵심 단어>", "duration_sec": 3}},
-    {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>",               "emphasis": "<핵심 단어>", "duration_sec": 2}},
-    {{"beat": "꿀팁3단", "emotion": "<감정>", "dialogue": "<꿀팁 3가지 연속 대사>","emphasis": "<핵심 단어>", "duration_sec": 20}},
-    {{"beat": "마무리",  "emotion": "<감정>", "dialogue": "<대사>",               "emphasis": "<핵심 단어>", "duration_sec": 5}}
+    {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 4}},
+    {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 3}},
+    {{"beat": "꿀팁1",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
+    {{"beat": "꿀팁2",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
+    {{"beat": "꿀팁3",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
+    {{"beat": "마무리",  "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 5}}
   ],
   "vote_options": ["<다음 주제 후보 A>", "<다음 주제 후보 B>"]
 }}"""

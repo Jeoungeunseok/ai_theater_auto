@@ -149,6 +149,8 @@ def produce_images_task(job_id: str, topic: str, category: str = "직장", episo
             paths = generate_cut_images(beat, i, candidates_dir, n_candidates=n_candidates)
             if paths:
                 has_any_candidate = True
+                for _ in paths:
+                    record_cost("image")
                 send_image_candidates(job_id, i, beat_name, emotion, paths, n_beats)
             else:
                 # 이미지 생성 실패한 beat은 body_front.png 폴백으로 자동 선택
@@ -201,12 +203,15 @@ def produce_video_task(job_id: str, topic: str, category: str = "직장", episod
         # 이미지 게이트에서 선택된 이미지 로드 (없으면 body_front.png 폴백)
         selected_images = _load_selected_images(tmp_dir)
 
-        # 1. 배경 이미지
-        _step(db, job, "generating_background")
-        bg_path = f"assets/bg/ep{episode_no:02d}_{category}.webp"
-        if not os.path.exists(bg_path):
-            generate_background(topic, category=category, output_path=bg_path)
-            record_cost("background")
+        # 1. 배경 이미지 — Kling 클립(선택 이미지)이 전 컷 장면을 담으므로
+        #    FAL_KEY 있으면 배경 별도 생성 불필요. 폴백 렌더(PIL/퍼펫)에서만 생성.
+        bg_path = None
+        if not os.getenv("FAL_KEY"):
+            _step(db, job, "generating_background")
+            bg_path = f"assets/bg/ep{episode_no:02d}_{category}.webp"
+            if not os.path.exists(bg_path):
+                generate_background(topic, category=category, output_path=bg_path)
+                record_cost("background")
 
         # 2. Kling I2V 클립 (선택 이미지 사용, 무음, ⭐ 최대 비용)
         _step(db, job, "generating_clips")
@@ -230,9 +235,9 @@ def produce_video_task(job_id: str, topic: str, category: str = "직장", episod
         render_pangi_short(
             script_path=script_path,
             voice_dir=os.path.join(tmp_dir, "voice"),
-            bg_path=bg_path,
             output_path=output_path,
             category=category,
+            bg_path=bg_path,  # FAL_KEY 없는 폴백 시에만 값 있음
         )
 
         job.status = JobStatus.COMPLETED

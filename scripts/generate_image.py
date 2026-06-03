@@ -9,9 +9,13 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 _QUALITY = os.getenv("BG_IMAGE_QUALITY", "medium")
 
-# fal.ai Kling 이미지 생성 모델 — 레퍼런스 이미지 지원 필요
-# 옵션: "fal-ai/kling-image/v2-master" / "fal-ai/kling-image/v3"
+# fal.ai Kling 이미지 생성 모델
+# elements(캐릭터 일관성) 지원 모델이어야 함 — fal.ai 대시보드에서 확인 후 설정:
+#   "fal-ai/kling-image/v2-master"  : img2img / image_url 레퍼런스 지원
+#   "fal-ai/kling-image/v3"         : 최신, elements 파라미터 지원 여부 확인 필요
+# ⚠️ image_url 파라미터명은 모델별로 다를 수 있음. 실제 API 확인 후 PANGI_IMAGE_REF_PARAM으로 오버라이드 가능.
 _IMAGE_MODEL = os.getenv("PANGI_IMAGE_MODEL", "fal-ai/kling-image/v2-master")
+_IMAGE_REF_PARAM = os.getenv("PANGI_IMAGE_REF_PARAM", "image_url")
 
 _CATEGORY_STYLE = {
     "직장": "modern office interior, clean minimal illustration, Korean webtoon style",
@@ -125,7 +129,7 @@ def generate_cut_images(beat: dict, beat_idx: int, output_dir: str,
                 arguments={
                     "prompt": prompt,
                     "negative_prompt": negative_prompt,
-                    "image_url": image_url,
+                    _IMAGE_REF_PARAM: image_url,  # 모델별 레퍼런스 파라미터 — 환경변수로 조정 가능
                     "aspect_ratio": "9:16",
                     "num_images": 1,
                 },

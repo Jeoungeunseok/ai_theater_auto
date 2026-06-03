@@ -52,9 +52,9 @@ def main():
     render_pangi_short(
         script_path=script_path,
         voice_dir=voice_dir,
-        bg_path=None,
         output_path=output_path,
         category=category,
+        bg_path=None,
     )
 
     print(f"\n완료! 영상: {output_path}")

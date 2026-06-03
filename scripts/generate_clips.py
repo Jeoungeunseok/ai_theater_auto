@@ -41,8 +41,12 @@ _EMOTION_EN = {
 _BEAT_MOTION = {
     "후킹":    "pointing playfully at the viewer, leaning forward with a knowing smirk, provocative gesture",
     "본심수신": "antenna flashing and glowing, body spinning slightly with surprise, signal receiving animation",
-    "꿀팁3단": "gesturing confidently with hands, explaining expressively, coaching motion with head nodding",
+    "꿀팁1":   "raising one finger confidently, leaning in to share the first tip, engaging coaching pose",
+    "꿀팁2":   "gesturing with two fingers expressively, explaining with rhythmic head nods",
+    "꿀팁3":   "three fingers up, then a decisive clap or snap — punctuating the final key point",
     "마무리":  "winking at the camera, giving a thumbs up, cheerful wave goodbye",
+    # 레거시 — 3컷 분리 전 단일 beat용. 새 대본에선 사용 안 함.
+    "꿀팁3단": "gesturing confidently with hands, explaining expressively, coaching motion with head nodding",
 }
 
 
