@@ -3,6 +3,7 @@ import json
 import yaml
 from openai import OpenAI
 from dotenv import load_dotenv
+from scripts.variation_engine import pick_variation, record_episode, build_variation_prompt, OUTRO_EMOTION
 
 load_dotenv()
 
@@ -34,7 +35,7 @@ def _load_category(category: str) -> dict:
         return yaml.safe_load(f)
 
 
-def _build_system_prompt(persona: dict, category_cfg: dict) -> str:
+def _build_system_prompt(persona: dict, category_cfg: dict, variation: dict, category: str = "") -> str:
     tone_rules = "\n".join(f"- {t}" for t in persona["personality"]["tone"])
     forbidden = "\n".join(f"- {t}" for t in persona["personality"]["forbidden"])
     emotions = ", ".join(persona["emotions"].keys())
@@ -56,11 +57,21 @@ def _build_system_prompt(persona: dict, category_cfg: dict) -> str:
         examples = "\n".join(f'  · "{h}"' for h in category_cfg["example_hooks"])
         hook_examples = f"\n[후킹 예시 (이 스타일로)]\n{examples}"
 
+    variation_block = build_variation_prompt(variation)
+
+    cat_name = category_cfg.get("category", category)
+    category_ctx = (
+        f"\n이 에피소드 카테고리는 {cat_name}입니다.\n"
+        f"모든 대사·비유·예시는 {cat_name} 생활 맥락에서만 작성하세요. 다른 카테고리 맥락 혼입 금지."
+        if cat_name else ""
+    )
+
     return f"""당신은 와이파이 의인화 캐릭터 팡이의 전담 대본 작가입니다.
 
 [팡이 기본 톤 규칙]
 {tone_rules}
 {extra_tone}
+{category_ctx}
 
 [절대 금지]
 {forbidden}
@@ -71,11 +82,12 @@ def _build_system_prompt(persona: dict, category_cfg: dict) -> str:
 [에피소드 포맷 — 총 약 30초, 6-beat]
 beat 1 "후킹"    (3~4초):  시청자가 멈추게 만드는 도발적 본심 선언 한 줄
 beat 2 "본심수신" (2~3초):  팡이가 본심 주파수 수신 — 안테나 번쩍 멘트
-beat 3 "꿀팁1"  (5~7초):  꿀팁 첫 번째 — 임팩트 있게 한 가지만, 완결된 문장
-beat 4 "꿀팁2"  (5~7초):  꿀팁 두 번째 — 앞과 자연스럽게 이어지되 독립적 문장
-beat 5 "꿀팁3"  (5~7초):  꿀팁 세 번째 — 마지막 반전 또는 핵심 하이라이트, 완결
+beat 3 "꿀팁1"  (5~7초):  꿀팁 첫 번째 — 시청자가 내일 당장 실행할 수 있는 해법 한 가지. 상상/현실 대비·감상·관찰형 구성 금지.
+beat 4 "꿀팁2"  (5~7초):  꿀팁 두 번째 — 실행 가능한 해법, 앞과 자연스럽게 이어지되 독립적 문장.
+beat 5 "꿀팁3"  (5~7초):  꿀팁 세 번째 — 실행 가능한 해법으로 마지막 반전 또는 핵심 하이라이트. 완결.
 beat 6 "마무리"  (4~5초):  공범 윙크 + 다음 본심 투표 CTA
 {hook_examples}
+{variation_block}
 
 ⚠️ 꿀팁1·2·3은 각각 독립된 짧은 문장. 이어서 읽는 연속 대사 금지 — 컷이 따로 나뉘므로.
 각 beat의 "emphasis"는 그 대사에서 화면에 크게 강조할 핵심 단어 1개입니다.
@@ -92,16 +104,18 @@ beat 6 "마무리"  (4~5초):  공범 윙크 + 다음 본심 투표 CTA
     {{"beat": "꿀팁1",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
     {{"beat": "꿀팁2",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
     {{"beat": "꿀팁3",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
-    {{"beat": "마무리",  "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 5}}
+    {{"beat": "마무리",  "emotion": "{OUTRO_EMOTION}", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 5}}
   ],
   "vote_options": ["<다음 주제 후보 A>", "<다음 주제 후보 B>"]
-}}"""
+}}
+meme_ref는 감정 전환이 있는 beat에 선택적으로 추가 가능: {{"beat": "...", ..., "meme_ref": "<포즈·상황 설명>"}}"""
 
 
 def generate_pangi_script(topic: str, category: str = "직장", episode_no: int = 1) -> dict:
     persona = _load_persona()
     category_cfg = _load_category(category)
-    system_prompt = _build_system_prompt(persona, category_cfg)
+    variation = pick_variation()
+    system_prompt = _build_system_prompt(persona, category_cfg, variation, category)
 
     user_prompt = (
         f"카테고리: {category}\n"
@@ -119,7 +133,13 @@ def generate_pangi_script(topic: str, category: str = "직장", episode_no: int 
         response_format={"type": "json_object"},
     )
 
-    return json.loads(response.choices[0].message.content)
+    script = json.loads(response.choices[0].message.content)
+
+    # beat 1 실제 사용된 감정으로 이력 기록
+    hook_emotion = script.get("beats", [{}])[0].get("emotion", variation["hook_emotion"])
+    record_episode(episode_no, variation["hook_type"], variation["tone"], hook_emotion)
+
+    return script
 
 
 if __name__ == "__main__":
