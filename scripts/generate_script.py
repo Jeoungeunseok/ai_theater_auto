@@ -17,6 +17,30 @@ _CATEGORY_FILE = {
     "일상": "daily.yaml",
 }
 
+# 전개 모드별 beat 3·4·5 설명 — 시스템 프롬프트 beat 포맷 섹션에 삽입
+_DEV_MODE_BEAT_DESC = {
+    "코칭": [
+        "꼼수·해법 첫 번째 — 팡이 공범 어조로 임팩트 있게 하나만. 독립 완결 문장.",
+        "꼼수·해법 두 번째 — 앞과 자연스럽게 이어지되 독립적 문장.",
+        "꼼수·해법 세 번째 — 반전 또는 핵심 하이라이트. 완결.",
+    ],
+    "유형": [
+        "1번째 유형 지목 — '이런 사람/상황 있잖아' 공범 어조. 임팩트 있게.",
+        "2번째 유형 지목 — 다른 각도, 독립적 문장.",
+        "3번째 유형 — 반전·웃음 포인트. 완결.",
+    ],
+    "상상현실": [
+        "망상·기대 — 설렘·과장으로 시작. 독립 완결 문장.",
+        "현실 충격 — 앞 beat와 대비, 반전·허당 구조.",
+        "여운·합리화 — 팡이가 공범으로 편들기. 완결.",
+    ],
+    "공감폭발": [
+        "'이럴 때 이러지' 첫 번째 순간 — 팡이가 '나도 그래' 편들며 독립 완결.",
+        "두 번째 공감 순간 — 다른 각도, 독립적 문장.",
+        "세 번째 공감 순간 — 반전 또는 핵심 공감. 완결.",
+    ],
+}
+
 
 def _load_persona() -> dict:
     path = os.path.join(_BASE_DIR, "prompts", "pangi_persona.yaml")
@@ -35,61 +59,35 @@ def _load_category(category: str) -> dict:
         return yaml.safe_load(f)
 
 
-def _build_system_prompt(persona: dict, category_cfg: dict, variation: dict, category: str = "") -> str:
+def _build_system_prompt(persona: dict, variation: dict) -> str:
     tone_rules = "\n".join(f"- {t}" for t in persona["personality"]["tone"])
     forbidden = "\n".join(f"- {t}" for t in persona["personality"]["forbidden"])
     emotions = ", ".join(persona["emotions"].keys())
-
-    # 카테고리별 추가 톤 규칙
-    extra_tone = ""
-    if category_cfg.get("tone_additions"):
-        extras = "\n".join(f"- {t}" for t in category_cfg["tone_additions"])
-        extra_tone = f"\n[{category_cfg.get('category', '')} 카테고리 특화 톤]\n{extras}"
-
-    extra_forbidden = ""
-    if category_cfg.get("forbidden_additions"):
-        fb = "\n".join(f"- {t}" for t in category_cfg["forbidden_additions"])
-        extra_forbidden = f"\n[추가 금지 사항]\n{fb}"
-
-    # 예시 후킹
-    hook_examples = ""
-    if category_cfg.get("example_hooks"):
-        examples = "\n".join(f'  · "{h}"' for h in category_cfg["example_hooks"])
-        hook_examples = f"\n[후킹 예시 (이 스타일로)]\n{examples}"
-
     variation_block = build_variation_prompt(variation)
 
-    cat_name = category_cfg.get("category", category)
-    category_ctx = (
-        f"\n이 에피소드 카테고리는 {cat_name}입니다.\n"
-        f"모든 대사·비유·예시는 {cat_name} 생활 맥락에서만 작성하세요. 다른 카테고리 맥락 혼입 금지."
-        if cat_name else ""
-    )
+    dm = variation.get("dev_mode", "코칭")
+    bd = _DEV_MODE_BEAT_DESC.get(dm, _DEV_MODE_BEAT_DESC["코칭"])
 
     return f"""당신은 와이파이 의인화 캐릭터 팡이의 전담 대본 작가입니다.
 
 [팡이 기본 톤 규칙]
 {tone_rules}
-{extra_tone}
-{category_ctx}
 
 [절대 금지]
 {forbidden}
-{extra_forbidden}
 
 [사용 가능한 감정] {emotions}
 
 [에피소드 포맷 — 총 약 30초, 6-beat]
 beat 1 "후킹"    (3~4초):  시청자가 멈추게 만드는 도발적 본심 선언 한 줄
 beat 2 "본심수신" (2~3초):  팡이가 본심 주파수 수신 — 안테나 번쩍 멘트
-beat 3 "꿀팁1"  (5~7초):  꿀팁 첫 번째 — 시청자가 내일 당장 실행할 수 있는 해법 한 가지. 상상/현실 대비·감상·관찰형 구성 금지.
-beat 4 "꿀팁2"  (5~7초):  꿀팁 두 번째 — 실행 가능한 해법, 앞과 자연스럽게 이어지되 독립적 문장.
-beat 5 "꿀팁3"  (5~7초):  꿀팁 세 번째 — 실행 가능한 해법으로 마지막 반전 또는 핵심 하이라이트. 완결.
+beat 3 "전개1"  (5~7초):  {bd[0]}
+beat 4 "전개2"  (5~7초):  {bd[1]}
+beat 5 "전개3"  (5~7초):  {bd[2]}
 beat 6 "마무리"  (4~5초):  공범 윙크 + 다음 본심 투표 CTA
-{hook_examples}
 {variation_block}
 
-⚠️ 꿀팁1·2·3은 각각 독립된 짧은 문장. 이어서 읽는 연속 대사 금지 — 컷이 따로 나뉘므로.
+⚠️ 전개1·2·3은 각각 독립된 짧은 문장. 이어서 읽는 연속 대사 금지 — 컷이 따로 나뉘므로.
 각 beat의 "emphasis"는 그 대사에서 화면에 크게 강조할 핵심 단어 1개입니다.
 반드시 해당 dialogue 안에 실제로 등장하는 짧은 단어/구(2~6자)를 고르세요.
 
@@ -101,9 +99,9 @@ beat 6 "마무리"  (4~5초):  공범 윙크 + 다음 본심 투표 CTA
   "beats": [
     {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 4}},
     {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 3}},
-    {{"beat": "꿀팁1",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
-    {{"beat": "꿀팁2",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
-    {{"beat": "꿀팁3",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
+    {{"beat": "전개1",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
+    {{"beat": "전개2",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
+    {{"beat": "전개3",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6}},
     {{"beat": "마무리",  "emotion": "{OUTRO_EMOTION}", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 5}}
   ],
   "vote_options": ["<다음 주제 후보 A>", "<다음 주제 후보 B>"]
@@ -111,18 +109,38 @@ beat 6 "마무리"  (4~5초):  공범 윙크 + 다음 본심 투표 CTA
 meme_ref는 감정 전환이 있는 beat에 선택적으로 추가 가능: {{"beat": "...", ..., "meme_ref": "<포즈·상황 설명>"}}"""
 
 
+def _build_user_prompt(topic: str, category: str, episode_no: int, category_cfg: dict) -> str:
+    extra_tone = ""
+    if category_cfg.get("tone_additions"):
+        extras = "\n".join(f"- {t}" for t in category_cfg["tone_additions"])
+        extra_tone = f"\n[{category_cfg.get('category', category)} 카테고리 특화 톤]\n{extras}\n"
+
+    extra_forbidden = ""
+    if category_cfg.get("forbidden_additions"):
+        fb = "\n".join(f"- {t}" for t in category_cfg["forbidden_additions"])
+        extra_forbidden = f"\n[추가 금지 사항]\n{fb}\n"
+
+    hook_examples = ""
+    if category_cfg.get("example_hooks"):
+        examples = "\n".join(f'  · "{h}"' for h in category_cfg["example_hooks"])
+        hook_examples = f"\n[후킹 예시 (이 스타일로)]\n{examples}\n"
+
+    return (
+        f"카테고리: {category}\n"
+        f"주제: {topic}\n"
+        f"에피소드 번호: {episode_no}\n"
+        f"{extra_tone}{extra_forbidden}{hook_examples}\n"
+        "위 주제로 팡이 에피소드 대본을 JSON으로 작성해줘."
+    )
+
+
 def generate_pangi_script(topic: str, category: str = "직장", episode_no: int = 1) -> dict:
     persona = _load_persona()
     category_cfg = _load_category(category)
-    variation = pick_variation()
-    system_prompt = _build_system_prompt(persona, category_cfg, variation, category)
-
-    user_prompt = (
-        f"카테고리: {category}\n"
-        f"주제: {topic}\n"
-        f"에피소드 번호: {episode_no}\n\n"
-        "위 주제로 팡이 에피소드 대본을 JSON으로 작성해줘."
-    )
+    allowed_modes = category_cfg.get("allowed_modes")
+    variation = pick_variation(allowed_modes)
+    system_prompt = _build_system_prompt(persona, variation)
+    user_prompt   = _build_user_prompt(topic, category, episode_no, category_cfg)
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -135,9 +153,12 @@ def generate_pangi_script(topic: str, category: str = "직장", episode_no: int 
 
     script = json.loads(response.choices[0].message.content)
 
-    # beat 1 실제 사용된 감정으로 이력 기록
+    # 변주 이력 기록 — beat 1 실제 사용 감정 + dev_mode
     hook_emotion = script.get("beats", [{}])[0].get("emotion", variation["hook_emotion"])
-    record_episode(episode_no, variation["hook_type"], variation["tone"], hook_emotion)
+    record_episode(episode_no, variation["hook_type"], variation["tone"], hook_emotion, variation["dev_mode"])
+
+    # 하위 파이프라인(generate_clips 등)에서 참조 가능하도록 dev_mode 저장
+    script["dev_mode"] = variation["dev_mode"]
 
     return script
 

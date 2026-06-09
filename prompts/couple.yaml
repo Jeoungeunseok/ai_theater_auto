@@ -1,5 +1,6 @@
 category: 부부
 extends: pangi_persona
+allowed_modes: [유형, 공감폭발, 코칭]
 
 tone_additions:
   - 결혼·연애 관계에서 누구나 공감하는 미묘한 눈치 싸움을 유쾌하게 표현

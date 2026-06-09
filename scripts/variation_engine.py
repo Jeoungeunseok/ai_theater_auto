@@ -1,10 +1,11 @@
 """
-변주 엔진 — 후킹 타입 / 개그 톤 / 시작 감정을 LRU로 순환.
+변주 엔진 — 후킹 타입 / 개그 톤 / 시작 감정 / 전개 모드를 LRU로 순환.
 
 추적 대상:
   hook_type   : beat 1 후킹 패턴 (5종)
   tone        : 전체 개그 톤 (3종)
   hook_emotion: beat 1 감정 (13종 — 자신감 제외)
+  dev_mode    : 중간 3비트 전개 방식 (4종 — 주제의 allowed_modes 안에서만 LRU)
 
 추적 제외:
   beat 6 마무리 감정 → OUTRO_EMOTION 고정 (브랜드 앵커)
@@ -22,10 +23,11 @@ HOOK_EMOTIONS = [
     "평온", "기쁨", "신남", "설렘", "뿌듯함",
     "슬픔", "분노", "무서움", "충격", "심술", "멍함", "과부하", "재부팅",
 ]
+DEV_MODES = ["코칭", "유형", "상상현실", "공감폭발"]
 OUTRO_EMOTION = "자신감"  # beat 6 고정 — 로테이션 대상 아님
 
 # 트래커가 보관할 최대 이력 수 (가장 큰 풀 크기 = 13)
-_MAX_HISTORY = max(len(HOOK_TYPES), len(COMEDY_TONES), len(HOOK_EMOTIONS))
+_MAX_HISTORY = max(len(HOOK_TYPES), len(COMEDY_TONES), len(HOOK_EMOTIONS), len(DEV_MODES))
 
 # 후킹 타입별 GPT 지시어
 _HOOK_TYPE_DESC = {
@@ -40,6 +42,13 @@ _TONE_DESC = {
     "과장 몰아치기": "감정·상황을 극단적으로 과장해 웃음 유발",
     "진지한 척": "엄청 심각한 표정·말투로 시작했다가 허당 결론",
     "자조": "팡이 자신이 당했거나 실패한 척하며 공감 유도",
+}
+
+_DEV_MODE_DESC = {
+    "코칭":     "팡이 공범 어조로 꼼수·해법 3개를 하나씩 코치",
+    "유형":     "주제 관련 유형·패턴 3개를 하나씩 지목·폭로",
+    "상상현실": "망상·기대 → 현실 충격 → 여운·합리화의 감정 아크",
+    "공감폭발": "'이럴 때 이러지' 순간 포착 ×3, 팡이가 공범으로 편들기",
 }
 
 
@@ -74,23 +83,35 @@ def _lru_pick(pool: list, recent: list[dict], key: str) -> str:
 
 # ── 공개 API ──────────────────────────────────────────────────
 
-def pick_variation() -> dict:
-    """이번 에피소드에 쓸 변주 조합 반환."""
+def pick_variation(allowed_modes: list[str] = None) -> dict:
+    """이번 에피소드에 쓸 변주 조합 반환.
+
+    allowed_modes: 주제가 허용하는 전개 모드 목록. None이면 전체 DEV_MODES.
+                   허용 모드 안에서만 LRU — 미스매치 방지.
+    """
     recent = _load()
-    hook_type    = _lru_pick(HOOK_TYPES,    recent, "hook_type")
-    tone         = _lru_pick(COMEDY_TONES,  recent, "tone")
-    hook_emotion = _lru_pick(HOOK_EMOTIONS, recent, "hook_emotion")
+    hook_type    = _lru_pick(HOOK_TYPES,                     recent, "hook_type")
+    tone         = _lru_pick(COMEDY_TONES,                   recent, "tone")
+    hook_emotion = _lru_pick(HOOK_EMOTIONS,                  recent, "hook_emotion")
+    dev_mode     = _lru_pick(allowed_modes or DEV_MODES,     recent, "dev_mode")
     return {
         "hook_type":    hook_type,
         "tone":         tone,
         "hook_emotion": hook_emotion,
+        "dev_mode":     dev_mode,
     }
 
 
-def record_episode(ep: int, hook_type: str, tone: str, hook_emotion: str):
+def record_episode(ep: int, hook_type: str, tone: str, hook_emotion: str, dev_mode: str):
     """에피소드 완료 후 이력에 기록."""
     recent = _load()
-    recent.append({"ep": ep, "hook_type": hook_type, "tone": tone, "hook_emotion": hook_emotion})
+    recent.append({
+        "ep": ep,
+        "hook_type": hook_type,
+        "tone": tone,
+        "hook_emotion": hook_emotion,
+        "dev_mode": dev_mode,
+    })
     _save(recent)
 
 
@@ -99,8 +120,8 @@ def build_variation_prompt(variation: dict) -> str:
     ht = variation["hook_type"]
     tn = variation["tone"]
     he = variation["hook_emotion"]
+    dm = variation["dev_mode"]
 
-    # beat 1에서 사용 가능한 감정 = hook_emotion 우선 + 나머지 (마무리 제외)
     others = [e for e in HOOK_EMOTIONS if e != he]
     available = f"{he} (우선 사용), 또는 {', '.join(others)}"
 
@@ -109,6 +130,7 @@ def build_variation_prompt(variation: dict) -> str:
 - 후킹(beat 1) 타입: {ht} — {_HOOK_TYPE_DESC[ht]}
 - 개그 톤 (전체): {tn} — {_TONE_DESC[tn]}
 - beat 1 감정: {available}
+- 전개 모드 (beat 3·4·5): {dm} — {_DEV_MODE_DESC[dm]}
 - beat 6(마무리) 감정: {OUTRO_EMOTION} 고정 (브랜드 앵커 — 변경 금지)
 
 [meme_ref — 모든 beat에 선택 필드]
