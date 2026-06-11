@@ -104,6 +104,18 @@ async def get_job(job_id: str, db: Session = Depends(get_db)):
     }
 
 
+@app.post("/slack/commands")
+async def slack_commands(request: Request):
+    await verify_slack_signature(request)
+    form_data = await request.form()
+    command = form_data.get("command", "")
+    trigger_id = form_data.get("trigger_id", "")
+
+    if command == "/팡이":
+        _open_new_job_modal(trigger_id)
+    return {"response_type": "ephemeral", "text": "잠시만요..."}
+
+
 @app.post("/slack/actions")
 async def slack_actions(request: Request, db: Session = Depends(get_db)):
     await verify_slack_signature(request)
@@ -112,9 +124,41 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
     payload = json.loads(form_data["payload"])
     payload_type = payload.get("type")
 
-    # ── 반려 사유 모달 제출 ─────────────────────────────────
+    # ── 모달 제출 ──────────────────────────────────────────
     if payload_type == "view_submission":
         callback_id = payload["view"].get("callback_id")
+
+        if callback_id == "regen_script_modal":
+            values = payload["view"]["state"]["values"]
+            job_id = payload["view"]["private_metadata"]
+            extra = values.get("instruction_block", {}).get("instruction_input", {}).get("value", "") or ""
+            job = db.query(Job).filter(Job.id == job_id).first()
+            if job:
+                job.current_step = "regenerating_script"
+                db.commit()
+                render_queue.enqueue(
+                    "worker.tasks.create_script_task",
+                    str(job_id), job.topic, job.category, job.episode_no, extra,
+                )
+            return {}
+
+        if callback_id == "new_job_modal":
+            values = payload["view"]["state"]["values"]
+            topic = values.get("topic_block", {}).get("topic_input", {}).get("value", "")
+            category = (
+                values.get("category_block", {})
+                .get("category_select", {})
+                .get("selected_option", {})
+                .get("value", "직장")
+            )
+            job_id = uuid.uuid4()
+            new_job = Job(id=job_id, topic=topic, category=category, status=JobStatus.PENDING)
+            db.add(new_job)
+            db.commit()
+            render_queue.enqueue("worker.tasks.create_script_task", str(job_id), topic, category, None)
+            print(f"[Slack /팡이] 잡 생성 완료 — {topic} ({category})")
+            return {}
+
         if callback_id == "reject_reason_modal":
             job_id = payload["view"]["private_metadata"]
             reason = (
@@ -157,15 +201,7 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
     elif action_id == "regenerate_script":
         if not _guard_regen(job):
             return {"ok": True}
-        job.current_step = "regenerating_script"
-        db.commit()
-        render_queue.enqueue(
-            "worker.tasks.create_script_task",
-            str(job_id),
-            job.topic,
-            job.category,
-            job.episode_no,
-        )
+        _open_regen_script_modal(trigger_id, job_id)
         return {"ok": True}
 
     # ── 이미지 게이트 — 컷별 후보 선택 ───────────────────────
@@ -264,6 +300,93 @@ def _guard_regen(job) -> bool:
         return False
     incr_regen(job_id)
     return True
+
+
+def _open_new_job_modal(trigger_id: str):
+    """슬래시 커맨드 /팡이 → 주제·카테고리 입력 모달."""
+    client = _slack_client()
+    if not client or not trigger_id:
+        return
+    try:
+        client.views_open(
+            trigger_id=trigger_id,
+            view={
+                "type": "modal",
+                "callback_id": "new_job_modal",
+                "title": {"type": "plain_text", "text": "팡이 에피소드 생성"},
+                "submit": {"type": "plain_text", "text": "생성 시작"},
+                "close": {"type": "plain_text", "text": "취소"},
+                "blocks": [
+                    {
+                        "type": "input",
+                        "block_id": "topic_block",
+                        "label": {"type": "plain_text", "text": "주제"},
+                        "element": {
+                            "type": "plain_text_input",
+                            "action_id": "topic_input",
+                            "placeholder": {"type": "plain_text", "text": "예: 상사 몰래 쉬는 법"},
+                        },
+                    },
+                    {
+                        "type": "input",
+                        "block_id": "category_block",
+                        "label": {"type": "plain_text", "text": "카테고리"},
+                        "element": {
+                            "type": "static_select",
+                            "action_id": "category_select",
+                            "placeholder": {"type": "plain_text", "text": "카테고리 선택"},
+                            "initial_option": {"text": {"type": "plain_text", "text": "직장"}, "value": "직장"},
+                            "options": [
+                                {"text": {"type": "plain_text", "text": "직장"}, "value": "직장"},
+                                {"text": {"type": "plain_text", "text": "욕망"}, "value": "욕망"},
+                                {"text": {"type": "plain_text", "text": "부부"}, "value": "부부"},
+                                {"text": {"type": "plain_text", "text": "일상"}, "value": "일상"},
+                            ],
+                        },
+                    },
+                ],
+            },
+        )
+    except SlackApiError as e:
+        print(f"[WARN] new_job 모달 오픈 실패: {e}")
+
+
+def _open_regen_script_modal(trigger_id: str, job_id: str):
+    """대본 재생성 — 추가 지시 입력 모달."""
+    client = _slack_client()
+    if not client or not trigger_id:
+        return
+    try:
+        client.views_open(
+            trigger_id=trigger_id,
+            view={
+                "type": "modal",
+                "callback_id": "regen_script_modal",
+                "private_metadata": job_id,
+                "title": {"type": "plain_text", "text": "대본 재생성"},
+                "submit": {"type": "plain_text", "text": "재생성"},
+                "close": {"type": "plain_text", "text": "취소"},
+                "blocks": [
+                    {
+                        "type": "input",
+                        "block_id": "instruction_block",
+                        "optional": True,
+                        "label": {"type": "plain_text", "text": "추가 요청 (선택)"},
+                        "element": {
+                            "type": "plain_text_input",
+                            "action_id": "instruction_input",
+                            "multiline": True,
+                            "placeholder": {
+                                "type": "plain_text",
+                                "text": "예: 더 웃기게, 후킹 더 강하게, 톤 가볍게...",
+                            },
+                        },
+                    }
+                ],
+            },
+        )
+    except SlackApiError as e:
+        print(f"[WARN] 재생성 모달 오픈 실패: {e}")
 
 
 def _open_reject_modal(trigger_id: str, job_id: str):

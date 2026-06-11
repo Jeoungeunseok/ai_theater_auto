@@ -136,16 +136,19 @@ def _build_user_prompt(topic: str, category: str, episode_no: int, category_cfg:
     )
 
 
-def generate_pangi_script(topic: str, category: str = "직장", episode_no: int = 1) -> dict:
+def generate_pangi_script(topic: str, category: str = "직장", episode_no: int = 1,
+                          extra_instruction: str = "") -> dict:
     persona = _load_persona()
     category_cfg = _load_category(category)
     allowed_modes = category_cfg.get("allowed_modes")
     variation = pick_variation(allowed_modes)
     system_prompt = _build_system_prompt(persona, variation)
     user_prompt   = _build_user_prompt(topic, category, episode_no, category_cfg)
+    if extra_instruction:
+        user_prompt += f"\n\n[추가 요청] {extra_instruction}"
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5.5",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},

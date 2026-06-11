@@ -37,7 +37,8 @@ def _tmp_dir(job_id: str) -> str:
 
 # ── 1단계: 대본 생성 + 대본 게이트 (v4 §3.3, 가장 싼 단계) ──
 
-def create_script_task(job_id: str, topic: str, category: str = "직장", episode_no: int = None):
+def create_script_task(job_id: str, topic: str, category: str = "직장", episode_no: int = None,
+                       extra_instruction: str = ""):
     db = SessionLocal()
     job = None
     try:
@@ -57,7 +58,8 @@ def create_script_task(job_id: str, topic: str, category: str = "직장", episod
         job.episode_no = episode_no
         _step(db, job, "generating_script")
 
-        script = generate_pangi_script(topic, category=category, episode_no=episode_no)
+        script = generate_pangi_script(topic, category=category, episode_no=episode_no,
+                                       extra_instruction=extra_instruction)
         record_cost("script")
 
         tmp_dir = _tmp_dir(job_id)
