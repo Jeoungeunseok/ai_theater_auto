@@ -259,6 +259,38 @@ def produce_video_task(job_id: str, topic: str, category: str = "직장", episod
         db.close()
 
 
+# ── 컷 이미지 재생성 (특정 beat만) ──────────────────────────
+
+def regen_cut_image_task(job_id: str, beat_idx: int):
+    """특정 컷 이미지 후보만 재생성 → Slack 재전송."""
+    try:
+        tmp_dir = _tmp_dir(job_id)
+        script_path = os.path.join(tmp_dir, "script.json")
+        with open(script_path, encoding="utf-8") as f:
+            script = json.load(f)
+
+        beats = script.get("beats", [])
+        beat = beats[beat_idx]
+        n_beats = len(beats)
+        beat_name = beat.get("beat", f"컷{beat_idx + 1}")
+        emotion = beat.get("emotion", "")
+
+        candidates_dir = os.path.join(tmp_dir, "candidates")
+        n_candidates = int(os.getenv("IMAGE_CANDIDATES", "2"))
+
+        paths = generate_cut_images(beat, beat_idx, candidates_dir, n_candidates=n_candidates)
+        for _ in paths:
+            record_cost("image")
+
+        if paths:
+            send_image_candidates(job_id, beat_idx, beat_name, emotion, paths, n_beats)
+            print(f"[{job_id}] beat_{beat_idx} 재생성 완료 — 후보 {len(paths)}장 Slack 재전송")
+        else:
+            print(f"[{job_id}] beat_{beat_idx} 재생성 실패 — FAL_KEY 확인 필요")
+    except Exception as e:
+        print(f"[{job_id}] regen_cut_image_task 실패: {e}")
+
+
 # ── 이미지 선택 상태 헬퍼 ─────────────────────────────────
 
 def _selected_images_path(tmp_dir: str) -> str:

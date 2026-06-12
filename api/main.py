@@ -16,7 +16,9 @@ from db.models import Job, JobStatus, Submission
 from api.slack import verify_slack_signature
 from scripts.topic_engine import add_submission
 from scripts.daily_cost import incr_regen, regen_limit_reached, regen_limit
-from worker.slack_notifier import send_regen_limit_warning, update_image_selected
+from worker.slack_notifier import (
+    send_regen_limit_warning, update_image_selected, update_image_regenerating,
+)
 
 app = FastAPI(title="팡이 API")
 
@@ -265,6 +267,30 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
             print(f"[{job_id}] beat_{beat_idx} 선택 완료 ({remaining}컷 남음)")
             db.commit()
 
+        return {"ok": True}
+
+    # ── 컷 이미지 재생성 ───────────────────────────────────
+    if action_id.startswith("regenerate_image_"):
+        parts = action["value"].split("|", 1)
+        if len(parts) != 2:
+            return {"ok": False, "error": "Invalid regenerate_image value"}
+        _, beat_idx_str = parts
+        beat_idx = int(beat_idx_str)
+
+        tmp_dir = f"tmp/aitheater/{job_id}"
+        script_path = os.path.join(tmp_dir, "script.json")
+        n_beats = 6  # 기본값
+        if os.path.exists(script_path):
+            with open(script_path, encoding="utf-8") as f:
+                n_beats = len(json.load(f).get("beats", []))
+
+        update_image_regenerating(
+            channel_id=payload.get("channel", {}).get("id", ""),
+            message_ts=payload.get("message", {}).get("ts", ""),
+            beat_idx=beat_idx,
+            n_beats=n_beats,
+        )
+        render_queue.enqueue("worker.tasks.regen_cut_image_task", job_id, beat_idx)
         return {"ok": True}
 
     # ── 최종 영상 게이트 ───────────────────────────────────

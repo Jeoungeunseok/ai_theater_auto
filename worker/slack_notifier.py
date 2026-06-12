@@ -176,6 +176,13 @@ def send_image_candidates(job_id: str, beat_idx: int, beat_name: str, emotion: s
             "action_id": f"select_image_b{beat_idx}_c{i}",
         }
         for i, path in enumerate(candidate_paths)
+    ] + [
+        {
+            "type": "button",
+            "text": {"type": "plain_text", "text": "다시 생성"},
+            "value": f"{job_id}|{beat_idx}",
+            "action_id": f"regenerate_image_b{beat_idx}",
+        }
     ]
 
     blocks = [
@@ -201,6 +208,30 @@ def send_image_candidates(job_id: str, beat_idx: int, beat_name: str, emotion: s
         )
     except SlackApiError as e:
         print(f"[WARN] 이미지 후보 메시지 전송 실패: {e}")
+
+
+def update_image_regenerating(channel_id: str, message_ts: str, beat_idx: int, n_beats: int):
+    """'다시 생성' 클릭 직후 해당 메시지를 '재생성 중...' 상태로 교체."""
+    client = _client()
+    if not client:
+        return
+    try:
+        client.chat_update(
+            channel=channel_id,
+            ts=message_ts,
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f":arrows_counterclockwise: *컷 {beat_idx + 1}/{n_beats} 이미지 재생성 중...*",
+                    },
+                }
+            ],
+            text=f"컷 {beat_idx + 1}/{n_beats} 재생성 중...",
+        )
+    except SlackApiError as e:
+        print(f"[WARN] 재생성 중 메시지 업데이트 실패: {e}")
 
 
 def update_image_selected(
