@@ -21,7 +21,7 @@ _COST_PER_CALL = {
     "background": 0.053, # gpt-image-2 medium
     "image": 0.053,     # 컷별 후보 이미지 (gpt-image-2 medium)
     "i2v": 0.28,        # ⭐ Kling I2V — 최대 비용 (컷당, 요금제 따라 변동)
-    "thumbnail": 0.0,   # Pillow 로컬 생성
+    "thumbnail": 0.053,  # gpt-image-2 medium (1024x1024)
 }
 
 

@@ -15,5 +15,6 @@ COPY worker/ worker/
 COPY api/ api/
 COPY db/ db/
 COPY prompts/ prompts/
+COPY assets/ assets/
 
 CMD ["rq", "worker", "render_queue", "upload_queue", "--url", "redis://redis:6379/0"]

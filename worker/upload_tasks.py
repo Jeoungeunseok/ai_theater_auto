@@ -3,6 +3,7 @@ import os
 from db.database import SessionLocal
 from db.models import Job, JobStatus, Episode
 from api.youtube import upload_to_youtube, generate_thumbnail, build_tags
+from scripts.daily_cost import record_cost
 
 
 def upload_video_task(
@@ -40,9 +41,10 @@ def upload_video_task(
             f"ref:{job_id}"
         )
 
-        # 썸네일 생성
+        # 썸네일 생성 (gpt-image-2 AI 주제별 씬)
         thumbnail_path = os.path.join(tmp_dir, "thumbnail.jpg")
-        generate_thumbnail(topic, thumbnail_path)
+        generate_thumbnail(topic, thumbnail_path, category=category, hook_line=hooking_line)
+        record_cost("thumbnail")
 
         print(f"[{job_id}] YouTube 업로드 시작: {title}")
         youtube_id = upload_to_youtube(

@@ -1,8 +1,11 @@
+import base64
 import os
 import platform
 import subprocess
 import time
 from PIL import Image, ImageDraw, ImageFont
+from openai import OpenAI
+from io import BytesIO
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -64,7 +67,15 @@ def build_tags(category: str) -> list[str]:
     return base + _CATEGORY_TAGS.get(category, [])
 
 
-# ── 썸네일 생성 (Pillow) ──────────────────────────────────
+# ── 썸네일 생성 ───────────────────────────────────────────
+
+_CAT_CONTEXT = {
+    "직장": "Korean office workplace",
+    "욕망": "Korean daily life, temptation and desire",
+    "부부": "Korean married couple at home",
+    "일상": "Korean everyday life",
+}
+
 
 def _font_path() -> str:
     if platform.system() == "Darwin":
@@ -79,49 +90,108 @@ def _font_path() -> str:
     return linux if os.path.exists(linux) else ""
 
 
-def generate_thumbnail(topic: str, output_path: str) -> bool:
-    """팡이 테마 썸네일 생성 (1280x720)."""
-    W, H = 1280, 720
-    BG = (10, 22, 48)       # 딥 네이비
-    ACCENT = (123, 189, 212) # 팡이 스카이블루
-    YELLOW = (255, 235, 100)
+def _build_thumbnail_prompt(topic: str, category: str, hook_line: str) -> str:
+    ctx = _CAT_CONTEXT.get(category, "Korean daily life")
+    scene = hook_line[:60] if hook_line else topic
+    return (
+        f"YouTube Shorts thumbnail illustration: {ctx} setting. "
+        f"Topic: '{topic}'. "
+        f"Scene: {scene}. "
+        f"Style: bright vibrant cartoon illustration, bold eye-catching composition, "
+        f"comic style, funny and relatable. No text or letters anywhere in the image. "
+        f"High contrast punchy colors, 16:9 wide shot framing."
+    )
 
-    img = Image.new("RGB", (W, H), BG)
-    draw = ImageDraw.Draw(img)
+
+def _pillow_overlay(img: Image.Image, topic: str) -> Image.Image:
+    """AI 이미지 위에 제목 텍스트 오버레이 — 반투명 하단 그라디언트 바."""
+    W, H = 1280, 720
+    img = img.resize((W, H), Image.LANCZOS)
+    draw = ImageDraw.Draw(img, "RGBA")
     font_path = _font_path()
 
     try:
-        big_font = ImageFont.truetype(font_path, 80) if font_path else ImageFont.load_default()
-        sub_font = ImageFont.truetype(font_path, 44) if font_path else ImageFont.load_default()
+        title_font = ImageFont.truetype(font_path, 68) if font_path else ImageFont.load_default()
+        sub_font   = ImageFont.truetype(font_path, 36) if font_path else ImageFont.load_default()
     except Exception:
-        big_font = sub_font = ImageFont.load_default()
+        title_font = sub_font = ImageFont.load_default()
+
+    # 하단 반투명 그라디언트 배경
+    bar_h = 200
+    overlay = Image.new("RGBA", (W, bar_h), (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    for y in range(bar_h):
+        alpha = int(180 * (y / bar_h))
+        od.line([(0, y), (W, y)], fill=(10, 22, 48, alpha))
+    img.paste(overlay, (0, H - bar_h), overlay)
+
+    draw = ImageDraw.Draw(img)
+    ACCENT = (123, 189, 212)
+    YELLOW = (255, 235, 100)
+
+    # 채널명 (하단 상단부)
+    draw.text((50, H - 185), "팡이의 본심 대변인", font=sub_font, fill=ACCENT)
+
+    # 주제 텍스트 (줄바꿈, 최대 2줄)
+    max_chars = 13
+    lines = [topic[i:i + max_chars] for i in range(0, min(len(topic), max_chars * 2), max_chars)]
+    y = H - 148
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=title_font)
+        draw.text((50, y), line, font=title_font, fill=YELLOW)
+        y += 76
 
     # 상단 강조바
-    draw.rectangle([0, 0, W, 12], fill=ACCENT)
+    draw.rectangle([0, 0, W, 10], fill=ACCENT)
 
-    # 채널명
-    draw.text((60, 40), "팡이의 본심 대변인", font=sub_font, fill=ACCENT)
+    return img
 
-    # 주제 텍스트 (중앙)
-    max_chars = 14
-    lines = [topic[i:i + max_chars] for i in range(0, len(topic), max_chars)]
-    total_h = len(lines) * 100
-    y = (H - total_h) // 2
-    for line in lines:
-        bbox = draw.textbbox((0, 0), line, font=big_font)
-        x = (W - (bbox[2] - bbox[0])) // 2
-        draw.text((x, y), line, font=big_font, fill=YELLOW)
-        y += 100
 
-    # 하단 강조바
-    draw.rectangle([0, H - 12, W, H], fill=ACCENT)
+def generate_thumbnail(
+    topic: str,
+    output_path: str,
+    category: str = "일상",
+    hook_line: str = "",
+) -> bool:
+    """gpt-image-2로 주제별 AI 썸네일 생성 + Pillow 텍스트 오버레이 (1280x720).
+
+    THUMBNAIL_MODEL 환경변수 미설정 시 gpt-image-2 사용.
+    FAL_KEY와 무관 — OpenAI 단독 호출.
+    """
+    model = os.getenv("THUMBNAIL_MODEL", "gpt-image-2")
+    prompt = _build_thumbnail_prompt(topic, category, hook_line)
 
     try:
-        img.save(output_path)
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        resp = client.images.generate(
+            model=model,
+            prompt=prompt,
+            n=1,
+            size="1024x1024",
+            quality="medium",
+        )
+        img_bytes = base64.b64decode(resp.data[0].b64_json)
+        img = Image.open(BytesIO(img_bytes)).convert("RGB")
+        print(f"[thumb] gpt-image-2 생성 완료 — usage: {resp.usage}")
+    except Exception as e:
+        print(f"[thumb] AI 생성 실패 ({e}), Pillow 폴백")
+        img = _pillow_fallback(topic)
+
+    img = _pillow_overlay(img, topic)
+
+    try:
+        img.save(output_path, "JPEG", quality=92)
         return True
     except Exception as e:
-        print(f"썸네일 생성 실패: {e}")
+        print(f"썸네일 저장 실패: {e}")
         return False
+
+
+def _pillow_fallback(topic: str) -> Image.Image:
+    """AI 생성 실패 시 단색 배경 폴백."""
+    W, H = 1280, 720
+    img = Image.new("RGB", (W, H), (10, 22, 48))
+    return img
 
 
 # ── 업로드 ────────────────────────────────────────────────
