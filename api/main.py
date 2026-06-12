@@ -16,7 +16,7 @@ from db.models import Job, JobStatus, Submission
 from api.slack import verify_slack_signature
 from scripts.topic_engine import add_submission
 from scripts.daily_cost import incr_regen, regen_limit_reached, regen_limit
-from worker.slack_notifier import send_regen_limit_warning
+from worker.slack_notifier import send_regen_limit_warning, update_image_selected
 
 app = FastAPI(title="팡이 API")
 
@@ -231,6 +231,22 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
         selected[str(beat_idx)] = image_path
         with open(selected_path, "w", encoding="utf-8") as f:
             json.dump(selected, f, ensure_ascii=False)
+
+        # 선택 버튼 → '✅ 선택 완료' 메시지로 교체
+        try:
+            c_idx = int(action_id.split("_c", 1)[1])
+        except Exception:
+            c_idx = 0
+        beat_info = script.get("beats", [])[beat_idx] if beat_idx < len(script.get("beats", [])) else {}
+        update_image_selected(
+            channel_id=payload.get("channel", {}).get("id", ""),
+            message_ts=payload.get("message", {}).get("ts", ""),
+            beat_idx=beat_idx,
+            beat_name=beat_info.get("beat", f"컷{beat_idx + 1}"),
+            emotion=beat_info.get("emotion", ""),
+            candidate_no=c_idx + 1,
+            n_beats=n_beats,
+        )
 
         # 모든 beat 선택 완료 시 → I2V·렌더 단계 시작
         if all(str(i) in selected for i in range(n_beats)):
