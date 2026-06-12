@@ -210,6 +210,77 @@ def send_image_candidates(job_id: str, beat_idx: int, beat_name: str, emotion: s
         print(f"[WARN] 이미지 후보 메시지 전송 실패: {e}")
 
 
+def send_thumbnail_approval(job_id: str, topic: str, thumbnail_path: str):
+    """썸네일 확인 게이트 — 이미지 미리보기 + [확정] [다시 생성] 버튼."""
+    client = _client()
+    if not client:
+        print("[WARN] SLACK_BOT_TOKEN 미설정 — 썸네일 게이트 자동 통과")
+        return
+    try:
+        client.files_upload_v2(
+            channel=_SLACK_CHANNEL,
+            file=thumbnail_path,
+            title=f"썸네일 미리보기_{job_id[:8]}",
+        )
+        client.chat_postMessage(
+            channel=_SLACK_CHANNEL,
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*썸네일 확인*\n주제: {topic}\nID: `{job_id}`",
+                    },
+                },
+                {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "확정 (업로드)"},
+                            "style": "primary",
+                            "value": job_id,
+                            "action_id": "approve_thumbnail",
+                        },
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "다시 생성"},
+                            "value": job_id,
+                            "action_id": "regenerate_thumbnail",
+                        },
+                    ],
+                },
+            ],
+            text=f"썸네일 확인: {topic}",
+        )
+    except SlackApiError as e:
+        print(f"[WARN] 썸네일 게이트 메시지 전송 실패: {e}")
+
+
+def update_thumbnail_regenerating(channel_id: str, message_ts: str):
+    """'다시 생성' 클릭 후 썸네일 메시지를 '재생성 중...' 상태로 교체."""
+    client = _client()
+    if not client:
+        return
+    try:
+        client.chat_update(
+            channel=channel_id,
+            ts=message_ts,
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": ":arrows_counterclockwise: *썸네일 재생성 중...*",
+                    },
+                }
+            ],
+            text="썸네일 재생성 중...",
+        )
+    except SlackApiError as e:
+        print(f"[WARN] 썸네일 재생성 메시지 업데이트 실패: {e}")
+
+
 def update_image_regenerating(channel_id: str, message_ts: str, beat_idx: int, n_beats: int):
     """'다시 생성' 클릭 직후 해당 메시지를 '재생성 중...' 상태로 교체."""
     client = _client()

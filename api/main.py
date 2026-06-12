@@ -18,6 +18,7 @@ from scripts.topic_engine import add_submission
 from scripts.daily_cost import incr_regen, regen_limit_reached, regen_limit
 from worker.slack_notifier import (
     send_regen_limit_warning, update_image_selected, update_image_regenerating,
+    update_thumbnail_regenerating,
 )
 
 app = FastAPI(title="팡이 API")
@@ -296,15 +297,7 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
     # ── 최종 영상 게이트 ───────────────────────────────────
     if action_id == "approve_video":
         job.current_step = "approved"
-        vote_options = json.loads(job.vote_options) if job.vote_options else []
-        upload_queue.enqueue(
-            "worker.upload_tasks.upload_video_task",
-            job_id,
-            job.topic,
-            job.category,
-            job.episode_no,
-            vote_options,
-        )
+        upload_queue.enqueue("worker.upload_tasks.generate_thumbnail_task", job_id)
 
     elif action_id == "reject_video":
         # 모달 열어서 사유 입력받기
@@ -329,6 +322,23 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
             job.category,
             job.episode_no,
         )
+
+    # ── 썸네일 게이트 ─────────────────────────────────────
+    elif action_id == "approve_thumbnail":
+        job.current_step = "thumbnail_approved"
+        db.commit()
+        upload_queue.enqueue("worker.upload_tasks.upload_video_task", job_id)
+        return {"ok": True}
+
+    elif action_id == "regenerate_thumbnail":
+        update_thumbnail_regenerating(
+            channel_id=payload.get("channel", {}).get("id", ""),
+            message_ts=payload.get("message", {}).get("ts", ""),
+        )
+        job.current_step = "regenerating_thumbnail"
+        db.commit()
+        upload_queue.enqueue("worker.upload_tasks.generate_thumbnail_task", job_id)
+        return {"ok": True}
 
     db.commit()
     return {"ok": True}
