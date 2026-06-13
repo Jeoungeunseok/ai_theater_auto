@@ -17,7 +17,7 @@ except ImportError:
 _CHAR_IMAGE = os.getenv("PANGI_BODY", "assets/pang/base/body_front.png")
 
 # fal.ai Kling I2V 모델 ID
-_FAL_MODEL = "fal-ai/kling-video/v1.6/standard/image-to-video"
+_FAL_MODEL = "fal-ai/kling-video/v3/pro/image-to-video"
 
 # ── 감정 영문 설명 ────────────────────────────────────────
 _EMOTION_EN = {
@@ -73,21 +73,19 @@ def _check_key():
 
 
 def _kling_duration(tts_sec: float) -> int:
-    """TTS 길이로 Kling 생성 길이(5s/10s) 결정 — v5 §2.1 길이 결정 규칙."""
-    return 5 if tts_sec <= 4.5 else 10
+    """TTS 길이 + 여유 0.5초, v3 지원 범위 3~15초로 클리핑."""
+    return max(3, min(15, int(tts_sec + 0.5) + 1))
 
 
 def _generate_clip(image_url: str, prompt: str, duration_sec: int) -> str:
     """fal.ai에 I2V 요청 → 영상 URL 반환. generate_audio=false(무음) 고정."""
-    duration = "10" if duration_sec >= 10 else "5"
-
     handler = fal_client.submit(
         _FAL_MODEL,
         arguments={
             "image_url": image_url,
             "prompt": prompt,
             "negative_prompt": "different character, redesign, human, realistic, text, watermark, blurry",
-            "duration": duration,
+            "duration": duration_sec,
             "aspect_ratio": "9:16",
             "generate_audio": False,
         },

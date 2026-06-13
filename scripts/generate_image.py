@@ -94,83 +94,58 @@ def generate_cut_images(beat: dict, beat_idx: int, output_dir: str,
                         n_candidates: int = 1,
                         char_image_path: str = None,
                         edit_prompt: str = "") -> list[str]:
-    """beat 1개 → fal.ai 정지 이미지 n_candidates장 생성.
+    """beat 1개 → gpt-image-2로 장면 이미지 생성.
 
-    I2V 전 이미지 게이트용. 레퍼런스(body_front.png) + 감정 + 장면 프롬프트로
-    팡이 캐릭터 일관성을 유지하면서 컷별 표정/배경 이미지를 생성한다.
+    주제·감정·대사를 기반으로 팡이가 등장하는 장면을 생성한다.
+    edit_prompt 있으면 수정 지시로 사용.
 
-    Returns: 생성된 이미지 파일 경로 목록. FAL_KEY 미설정 시 빈 리스트 반환.
+    Returns: 생성된 이미지 파일 경로 목록.
     """
-    try:
-        import fal_client
-    except ImportError:
-        raise ImportError("fal-client 필요: pip install fal-client")
-
-    if not os.getenv("FAL_KEY"):
-        print(f"[WARN] FAL_KEY 미설정 — beat_{beat_idx} 이미지 생성 건너뜀")
-        return []
-
-    char_path = char_image_path or os.getenv("PANGI_BODY", "assets/pang/base/body_front.png")
-    beat_name = beat.get("beat", "꿀팁3단")
+    beat_name = beat.get("beat", "전개")
     emotion = beat.get("emotion", "평온")
+    dialogue = beat.get("dialogue", "")
+    emphasis = beat.get("emphasis", "")
     emotion_desc = _EMOTION_EN.get(emotion, "neutral expression")
     scene_desc = _BEAT_SCENE.get(beat_name, "colorful simple background")
 
     if edit_prompt:
         prompt = (
             f"{edit_prompt}. "
-            f"Keep the exact same Pangi Wi-Fi mascot character from the reference image. "
-            f"3D cartoon style, vertical 9:16 format."
+            f"Character: Pangi, a cute blue 3D cartoon Wi-Fi signal mascot with antenna ears and big round eyes. "
+            f"Vertical 9:16 format. No text in image."
         )
     else:
         prompt = (
-            f"팡이(Pangi), an anthropomorphic Wi-Fi signal mascot character. "
-            f"Keep the exact same character design as the reference image — do NOT redesign the character. "
+            f"Korean short-form video scene illustration. "
+            f"Character: Pangi, a cute blue 3D cartoon Wi-Fi signal mascot with antenna ears and big round eyes. "
             f"Expression: {emotion_desc}. "
-            f"Background scene: {scene_desc}. "
-            f"3D cartoon animation style, vertical 9:16 format, character centered in frame."
+            f"Scene concept: '{dialogue}' — visually show this moment. "
+            f"Background: {scene_desc}. "
+            f"Key visual emphasis: '{emphasis}'. "
+            f"Style: bright vibrant 3D cartoon, vertical 9:16 format, character centered. "
+            f"No text or letters in image."
         )
-    negative_prompt = "different character, redesign, human, realistic, text, watermark, blurry"
 
     cut_dir = os.path.join(output_dir, f"beat_{beat_idx:02d}")
     os.makedirs(cut_dir, exist_ok=True)
 
-    print(f"    [이미지] beat_{beat_idx:02d} 레퍼런스 업로드...")
-    image_url = fal_client.upload_file(char_path)
-
-    # elements 방식 = 캐릭터 잠금 / image_url 방식 = 느슨한 참고
-    # PANGI_IMAGE_USE_ELEMENTS=true + 올바른 elements 파라미터명으로 캐릭터 일관성 확보
-    if _IMAGE_USE_ELEMENTS:
-        ref_arg = {
-            _IMAGE_ELEMENTS_PARAM: [{"image_url": image_url, "weight": 1.0}]
-        }
-        print(f"    [이미지] elements 방식 ({_IMAGE_ELEMENTS_PARAM}) — 캐릭터 잠금 모드")
-    else:
-        ref_arg = {_IMAGE_REF_PARAM: image_url}
-        print(f"    [이미지] 단일 레퍼런스 방식 ({_IMAGE_REF_PARAM}) — elements 활성화 권장")
-
     paths = []
     for i in range(n_candidates):
-        out_path = os.path.join(cut_dir, f"candidate_{i:02d}.webp")
-        print(f"    [이미지] beat_{beat_idx:02d} candidate {i+1}/{n_candidates} 생성 중...")
+        out_path = os.path.join(cut_dir, f"candidate_{i:02d}.png")
+        print(f"    [이미지] beat_{beat_idx:02d} gpt-image-2 생성 중... ({beat_name}/{emotion})")
         try:
-            result = fal_client.run(
-                _IMAGE_MODEL,
-                arguments={
-                    "prompt": prompt,
-                    "negative_prompt": negative_prompt,
-                    **ref_arg,
-                    "aspect_ratio": "9:16",
-                    "num_images": 1,
-                },
+            response = client.images.generate(
+                model="gpt-image-2",
+                prompt=prompt,
+                n=1,
+                size="1024x1536",
+                quality="medium",
             )
-            img_url = result["images"][0]["url"]
-            resp = requests.get(img_url, timeout=60)
-            resp.raise_for_status()
+            img_bytes = base64.b64decode(response.data[0].b64_json)
             with open(out_path, "wb") as f:
-                f.write(resp.content)
+                f.write(img_bytes)
             paths.append(out_path)
-            print(f"    [이미지] beat_{beat_idx:02d} candidate {i} 저장: {out_path}")
+            print(f"    [이미지] beat_{beat_idx:02d} 저장 완료: {out_path}")
         except Exception as e:
             print(f"    [WARN] beat_{beat_idx:02d} candidate {i} 생성 실패: {e}")
 

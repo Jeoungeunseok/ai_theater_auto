@@ -20,7 +20,7 @@ _COST_PER_CALL = {
     "script": 0.003,    # gpt-4o-mini 약 2000 input + 500 output tokens
     "background": 0.053, # gpt-image-2 medium
     "image": 0.053,     # 컷별 후보 이미지 (gpt-image-2 medium)
-    "i2v": 0.28,        # ⭐ Kling I2V — 최대 비용 (컷당, 요금제 따라 변동)
+    "i2v": 0.78,        # ⭐ Kling v3/pro — $0.112/초 × 평균 7초 (컷당)
     "thumbnail": 0.053,  # gpt-image-2 medium (1024x1024)
 }
 

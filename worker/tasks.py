@@ -131,18 +131,10 @@ def produce_images_task(job_id: str, topic: str, category: str = "직장", episo
         with open(script_path, "w", encoding="utf-8") as f:
             json.dump(script, f, ensure_ascii=False, indent=2)
 
-        # 3. 컷별 이미지 후보 생성 → Slack 이미지 게이트
-        if not os.getenv("FAL_KEY"):
-            # FAL_KEY 없으면 이미지 게이트 없이 바로 영상 단계로
-            print(f"[{job_id}] FAL_KEY 미설정 — 이미지 게이트 건너뜀")
-            _enqueue_video(job_id, topic, category, episode_no)
-            job.current_step = "pending_image_approval_skipped"
-            db.commit()
-            return
-
+        # 3. 컷별 이미지 생성 (gpt-image-2) → Slack 이미지 게이트
         _step(db, job, "generating_cut_images")
         candidates_dir = os.path.join(tmp_dir, "candidates")
-        n_candidates = int(os.getenv("IMAGE_CANDIDATES", "2"))
+        n_candidates = int(os.getenv("IMAGE_CANDIDATES", "1"))
         has_any_candidate = False
 
         for i, beat in enumerate(script["beats"]):
