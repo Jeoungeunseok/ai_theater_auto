@@ -53,10 +53,20 @@ _BEAT_MOTION = {
 # ── 프롬프트 빌드 ─────────────────────────────────────────
 
 def _build_prompt(beat_name: str, emotion: str,
-                  dialogue: str = "", emphasis: str = "") -> str:
+                  dialogue: str = "", emphasis: str = "",
+                  video_prompt: str = "") -> str:
     emotion_desc = _EMOTION_EN.get(emotion, "neutral expression")
     motion_desc  = _BEAT_MOTION.get(beat_name, "talking expressively")
 
+    if video_prompt:
+        # GPT가 대본 생성 시 작성한 Kling 전용 프롬프트 우선 사용
+        return (
+            f"@Element1 character — keep exact same design as reference. "
+            f"Emotion: {emotion_desc}. Motion: {motion_desc}. "
+            f"{video_prompt}"
+        )
+
+    # 폴백: 템플릿 조립
     scene_part = ""
     if dialogue:
         scene_part = f"Scene context: '{dialogue}'. "
@@ -65,8 +75,7 @@ def _build_prompt(beat_name: str, emotion: str,
 
     return (
         f"@Element1 character — keep exact same design as reference. "
-        f"Emotion: {emotion_desc}. "
-        f"Motion: {motion_desc}. "
+        f"Emotion: {emotion_desc}. Motion: {motion_desc}. "
         f"{scene_part}"
         f"Background matches the scene context naturally. "
         f"3D cartoon animation style, vertical 9:16 format, character centered."
@@ -131,12 +140,13 @@ def generate_beat_clip(beat: dict, output_path: str,
     _check_key()
 
     char_path = char_image_path or _CHAR_IMAGE
-    beat_name = beat.get("beat", "꿀팁3단")
-    emotion   = beat.get("emotion", "평온")
-    dialogue  = beat.get("dialogue", "")
-    emphasis  = beat.get("emphasis", "")
-    duration  = _kling_duration(tts_sec) if tts_sec is not None else min(15, max(3, int(beat.get("duration_sec", 5))))
-    prompt    = _build_prompt(beat_name, emotion, dialogue, emphasis)
+    beat_name    = beat.get("beat", "꿀팁3단")
+    emotion      = beat.get("emotion", "평온")
+    dialogue     = beat.get("dialogue", "")
+    emphasis     = beat.get("emphasis", "")
+    video_prompt = beat.get("video_prompt", "")
+    duration     = _kling_duration(tts_sec) if tts_sec is not None else min(15, max(3, int(beat.get("duration_sec", 5))))
+    prompt       = _build_prompt(beat_name, emotion, dialogue, emphasis, video_prompt)
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
