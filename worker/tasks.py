@@ -13,7 +13,6 @@ from scripts.daily_cost import is_queue_paused, record_cost
 from scripts.generate_image import generate_cut_images
 from worker.slack_notifier import (
     send_approval_message, send_script_approval, send_error_alert,
-    send_image_candidates,
 )
 
 _RETRY_DELAYS = [60, 300, 1800]  # 1분 → 5분 → 30분
@@ -131,35 +130,11 @@ def produce_images_task(job_id: str, topic: str, category: str = "직장", episo
         with open(script_path, "w", encoding="utf-8") as f:
             json.dump(script, f, ensure_ascii=False, indent=2)
 
-        # 3. 컷별 이미지 생성 (gpt-image-2) → Slack 이미지 게이트
-        _step(db, job, "generating_cut_images")
-        candidates_dir = os.path.join(tmp_dir, "candidates")
-        n_candidates = int(os.getenv("IMAGE_CANDIDATES", "1"))
-        has_any_candidate = False
-
-        for i, beat in enumerate(script["beats"]):
-            beat_name = beat.get("beat", "꿀팁3단")
-            emotion = beat.get("emotion", "평온")
-            paths = generate_cut_images(beat, i, candidates_dir, n_candidates=n_candidates)
-            if paths:
-                has_any_candidate = True
-                for _ in paths:
-                    record_cost("image")
-                send_image_candidates(job_id, i, beat_name, emotion, paths, n_beats)
-            else:
-                # 이미지 생성 실패한 beat은 body_front.png 폴백으로 자동 선택
-                print(f"[{job_id}] beat_{i} 이미지 생성 실패 — 레퍼런스 폴백 자동 선택")
-                _save_selected_image(tmp_dir, i, os.getenv("PANGI_BODY", "assets/pang/base/body_front.png"))
-
-        if has_any_candidate:
-            job.current_step = "pending_image_approval"
-            db.commit()
-            print(f"[{job_id}] 이미지 후보 Slack 전송 완료 — 선택 대기")
-        else:
-            # 전체 실패 시 바로 영상 단계
-            _enqueue_video(job_id, topic, category, episode_no)
-            job.current_step = "image_gen_failed_fallback"
-            db.commit()
+        # 3. eyes/{감정}.png를 I2V 시작 프레임으로 직접 사용 — 이미지 게이트 생략
+        _step(db, job, "all_images_selected")
+        _enqueue_video(job_id, topic, category, episode_no)
+        db.commit()
+        print(f"[{job_id}] TTS 완료 — eyes 직접 사용, 영상 생성 큐 투입")
 
     except Exception as e:
         _handle_failure(db, job, job_id, topic, category, episode_no, e,

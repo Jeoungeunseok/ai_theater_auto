@@ -14,7 +14,9 @@ try:
 except ImportError:
     raise ImportError("fal-client 필요: pip install fal-client")
 
-_CHAR_IMAGE = os.getenv("PANGI_BODY", "assets/pang/base/body_front.png")
+_BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_CHAR_IMAGE = os.path.join(_BASE_DIR, os.getenv("PANGI_BODY", "assets/pang/base/body_front.png"))
+_EYES_DIR   = os.path.join(_BASE_DIR, "assets", "pang", "eyes")
 
 # fal.ai Kling I2V 모델 ID
 _FAL_MODEL = "fal-ai/kling-video/v3/pro/image-to-video"
@@ -50,18 +52,24 @@ _BEAT_MOTION = {
 
 # ── 프롬프트 빌드 ─────────────────────────────────────────
 
-def _build_prompt(beat_name: str, emotion: str) -> str:
-    # v4 §2.3: 외형은 레퍼런스로 고정, 프롬프트는 감정·모션만 지정
+def _build_prompt(beat_name: str, emotion: str,
+                  dialogue: str = "", emphasis: str = "") -> str:
     emotion_desc = _EMOTION_EN.get(emotion, "neutral expression")
     motion_desc  = _BEAT_MOTION.get(beat_name, "talking expressively")
+
+    scene_part = ""
+    if dialogue:
+        scene_part = f"Scene context: '{dialogue}'. "
+    if emphasis:
+        scene_part += f"Key visual element prominently shown: '{emphasis}'. "
+
     return (
-        f"팡이(Pangi), an anthropomorphic Wi-Fi signal mascot character. "
-        f"Keep the exact same character design, face structure, body proportions and colors "
-        f"as the reference image — do NOT redesign the character. "
-        f"Only animate the expression and the signal antenna: {emotion_desc}. "
+        f"@Element1 character — keep exact same design as reference. "
+        f"Emotion: {emotion_desc}. "
         f"Motion: {motion_desc}. "
-        f"3D cartoon animation style, clean simple background, vertical 9:16 format, "
-        f"character centered in frame."
+        f"{scene_part}"
+        f"Background matches the scene context naturally. "
+        f"3D cartoon animation style, vertical 9:16 format, character centered."
     )
 
 
@@ -77,18 +85,26 @@ def _kling_duration(tts_sec: float) -> int:
     return max(3, min(15, int(tts_sec + 0.5) + 1))
 
 
-def _generate_clip(image_url: str, prompt: str, duration_sec: int) -> str:
-    """fal.ai에 I2V 요청 → 영상 URL 반환. generate_audio=false(무음) 고정."""
-    handler = fal_client.submit(
-        _FAL_MODEL,
-        arguments={
-            "image_url": image_url,
-            "prompt": prompt,
-            "negative_prompt": "different character, redesign, human, realistic, text, watermark, blurry",
-            "duration": duration_sec,
-            "generate_audio": False,
-        },
-    )
+def _generate_clip(image_url: str, prompt: str, duration_sec: int,
+                   eye_url: str = None, body_url: str = None) -> str:
+    """fal.ai Kling v3/pro I2V 요청 → 영상 URL 반환."""
+    arguments = {
+        "start_image_url": image_url,
+        "prompt": prompt,
+        "negative_prompt": "different character, redesign, human, realistic, text, watermark, blurry",
+        "duration": duration_sec,
+        "generate_audio": False,
+    }
+
+    # eyes + body 레퍼런스 → elements로 캐릭터 고정
+    if eye_url:
+        element = {"frontal_image_url": eye_url}
+        if body_url:
+            element["reference_image_urls"] = [body_url]
+        arguments["elements"] = [element]
+        arguments["prompt"] = f"@Element1 character. {prompt}"
+
+    handler = fal_client.submit(_FAL_MODEL, arguments=arguments)
     result = handler.get()
     return result["video"]["url"]
 
@@ -117,16 +133,25 @@ def generate_beat_clip(beat: dict, output_path: str,
     char_path = char_image_path or _CHAR_IMAGE
     beat_name = beat.get("beat", "꿀팁3단")
     emotion   = beat.get("emotion", "평온")
+    dialogue  = beat.get("dialogue", "")
+    emphasis  = beat.get("emphasis", "")
     duration  = _kling_duration(tts_sec) if tts_sec is not None else min(15, max(3, int(beat.get("duration_sec", 5))))
-    prompt    = _build_prompt(beat_name, emotion)
+    prompt    = _build_prompt(beat_name, emotion, dialogue, emphasis)
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
-    print(f"    레퍼런스 업로드: {char_path}")
-    image_url = fal_client.upload_file(char_path)
+    # Option B: eyes/{감정}.png를 시작 프레임으로 직접 사용
+    eye_path = os.path.join(_EYES_DIR, f"{emotion}.png")
+    start_path = eye_path if os.path.exists(eye_path) else char_path
+    print(f"    시작 프레임 업로드: {os.path.basename(start_path)}")
+    image_url = fal_client.upload_file(start_path)
+
+    # eyes + body → elements로 캐릭터 고정
+    eye_url  = image_url if os.path.exists(eye_path) else None
+    body_url = fal_client.upload_file(_CHAR_IMAGE) if os.path.exists(_CHAR_IMAGE) else None
 
     print(f"    fal.ai 제출: [{beat_name}/{emotion}] {duration}초")
-    url = _generate_clip(image_url, prompt, duration)
+    url = _generate_clip(image_url, prompt, duration, eye_url=eye_url, body_url=body_url)
     _download(url, output_path)
 
     print(f"    클립 저장: {output_path}")
