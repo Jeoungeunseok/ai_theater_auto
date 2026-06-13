@@ -20,7 +20,7 @@ _COST_PER_CALL = {
     "script": 0.003,    # gpt-4o-mini 약 2000 input + 500 output tokens
     "background": 0.053, # gpt-image-2 medium
     "image": 0.053,     # 컷별 후보 이미지 (gpt-image-2 medium)
-    "i2v": 0.78,        # ⭐ Kling v3/pro — $0.112/초 × 평균 7초 (컷당)
+    "i2v": 0.112,       # ⭐ Kling v3/pro — $0.112/초 (초 단위로 곱해서 사용)
     "thumbnail": 0.053,  # gpt-image-2 medium (1024x1024)
 }
 
@@ -35,9 +35,9 @@ def _today_key() -> str:
 
 # ── 비용 기록 ─────────────────────────────────────────────
 
-def record_cost(call_type: str):
-    """API 호출 후 비용 기록. call_type: script | background | thumbnail"""
-    cost = _COST_PER_CALL.get(call_type, 0.0)
+def record_cost(call_type: str, seconds: float = 1.0):
+    """API 호출 후 비용 기록. i2v는 seconds에 실제 클립 초 수 전달."""
+    cost = _COST_PER_CALL.get(call_type, 0.0) * seconds
     if cost <= 0:
         return
     r = _redis()

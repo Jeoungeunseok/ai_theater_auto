@@ -86,7 +86,6 @@ def _generate_clip(image_url: str, prompt: str, duration_sec: int) -> str:
             "prompt": prompt,
             "negative_prompt": "different character, redesign, human, realistic, text, watermark, blurry",
             "duration": duration_sec,
-            "aspect_ratio": "9:16",
             "generate_audio": False,
         },
     )
@@ -106,10 +105,11 @@ def _download(url: str, output_path: str):
 
 def generate_beat_clip(beat: dict, output_path: str,
                        char_image_path: str = None,
-                       tts_sec: float = None) -> bool:
-    """beat 1개 → fal.ai Kling 클립 생성. 20초 beat는 10초 × 2클립 concat.
+                       tts_sec: float = None) -> int:
+    """beat 1개 → fal.ai Kling v3 클립 생성. 생성된 클립 초(duration) 반환.
 
-    tts_sec: 실측 TTS 길이 — 있으면 v5 길이 결정 규칙으로 5s/10s 선택.
+    v3는 3~15초 네이티브 지원 — concat 불필요.
+    tts_sec: 실측 TTS 길이 — 있으면 _kling_duration()으로 초 결정.
     없으면 beat.duration_sec 폴백.
     """
     _check_key()
@@ -117,59 +117,34 @@ def generate_beat_clip(beat: dict, output_path: str,
     char_path = char_image_path or _CHAR_IMAGE
     beat_name = beat.get("beat", "꿀팁3단")
     emotion   = beat.get("emotion", "평온")
-    duration  = _kling_duration(tts_sec) if tts_sec is not None else beat.get("duration_sec", 5)
+    duration  = _kling_duration(tts_sec) if tts_sec is not None else min(15, max(3, int(beat.get("duration_sec", 5))))
     prompt    = _build_prompt(beat_name, emotion)
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
-    # 레퍼런스 이미지를 fal.ai에 업로드해 URL 확보
     print(f"    레퍼런스 업로드: {char_path}")
     image_url = fal_client.upload_file(char_path)
 
-    if duration <= 10:
-        print(f"    fal.ai 제출: [{beat_name}/{emotion}] {duration}초")
-        url = _generate_clip(image_url, prompt, duration)
-        _download(url, output_path)
-
-    else:
-        n_clips = (duration + 9) // 10
-        part_paths = []
-        for i in range(n_clips):
-            part_path = output_path.replace(".mp4", f"_part{i}.mp4")
-            print(f"    fal.ai 제출: [{beat_name}/{emotion}] part {i+1}/{n_clips}")
-            url = _generate_clip(image_url, prompt, 10)
-            _download(url, part_path)
-            part_paths.append(part_path)
-
-        list_file = output_path.replace(".mp4", "_list.txt")
-        with open(list_file, "w") as f:
-            for p in part_paths:
-                f.write(f"file '{os.path.abspath(p)}'\n")
-        subprocess.run(
-            ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
-             "-i", list_file, "-c", "copy", output_path],
-            capture_output=True, check=True,
-        )
-        os.remove(list_file)
-        for p in part_paths:
-            os.remove(p)
+    print(f"    fal.ai 제출: [{beat_name}/{emotion}] {duration}초")
+    url = _generate_clip(image_url, prompt, duration)
+    _download(url, output_path)
 
     print(f"    클립 저장: {output_path}")
-    return True
+    return duration
 
 
 def generate_all_clips(script_data: dict, output_dir: str,
                        char_image_path: str = None,
                        tts_durations: list[float] = None,
-                       selected_images: dict = None) -> list[str]:
+                       selected_images: dict = None) -> tuple[list[str], list[int]]:
     """스크립트의 모든 beat에 대해 fal.ai 클립 생성.
 
-    tts_durations: measure_beat_durations()로 측정한 실측 TTS 길이 목록.
-    selected_images: {beat_idx_str: image_path} — 이미지 게이트에서 선택된 경로.
-                     제공 시 해당 beat는 선택 이미지를 I2V 입력으로 사용.
+    Returns: (clip_paths, clip_seconds) — clip_seconds는 실제 생성된 초 수 목록.
+             기존 클립 재사용 시 0으로 표시 (비용 중복 차감 방지).
     """
     os.makedirs(output_dir, exist_ok=True)
     clip_paths = []
+    clip_seconds = []
 
     for i, beat in enumerate(script_data.get("beats", [])):
         out = os.path.join(output_dir, f"beat_{i:02d}.mp4")
@@ -177,8 +152,10 @@ def generate_all_clips(script_data: dict, output_dir: str,
         beat_img = (selected_images or {}).get(str(i)) or char_image_path
         if os.path.exists(out):
             print(f"  beat_{i:02d} 기존 클립 재사용")
+            clip_seconds.append(0)
         else:
-            generate_beat_clip(beat, out, beat_img, tts_sec=tts_sec)
+            secs = generate_beat_clip(beat, out, beat_img, tts_sec=tts_sec)
+            clip_seconds.append(secs)
         clip_paths.append(out)
 
-    return clip_paths
+    return clip_paths, clip_seconds

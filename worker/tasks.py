@@ -211,15 +211,14 @@ def produce_video_task(job_id: str, topic: str, category: str = "직장", episod
         _step(db, job, "generating_clips")
         clips_dir = os.path.join(tmp_dir, "clips")
         if os.getenv("FAL_KEY"):
-            before = set(os.listdir(clips_dir)) if os.path.isdir(clips_dir) else set()
-            clip_paths = generate_all_clips(
+            clip_paths, clip_seconds = generate_all_clips(
                 script, clips_dir,
                 tts_durations=tts_durations,
                 selected_images=selected_images,
             )
-            for p in clip_paths:
-                if os.path.basename(p) not in before:
-                    record_cost("i2v")
+            for secs in clip_seconds:
+                if secs > 0:
+                    record_cost("i2v", seconds=secs)
         else:
             print(f"[{job_id}] FAL_KEY 미설정 — I2V 건너뛰고 폴백 렌더")
 
