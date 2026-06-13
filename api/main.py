@@ -179,9 +179,15 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
 
     # ── 버튼 액션 ──────────────────────────────────────────
     action = payload["actions"][0]
-    job_id = action["value"]
     action_id = action["action_id"]
     trigger_id = payload.get("trigger_id")
+    raw_value = action["value"]
+
+    # select_image_, regenerate_image_ 액션은 value가 "{job_id}|..." 형태
+    if action_id.startswith("select_image_") or action_id.startswith("regenerate_image_"):
+        job_id = raw_value.split("|", 1)[0]
+    else:
+        job_id = raw_value
 
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
@@ -251,8 +257,8 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
             n_beats=n_beats,
         )
 
-        # 모든 beat 선택 완료 시 → I2V·렌더 단계 시작
-        if all(str(i) in selected for i in range(n_beats)):
+        # 모든 beat 선택 완료 시 → I2V·렌더 단계 시작 (중복 투입 방지)
+        if all(str(i) in selected for i in range(n_beats)) and job.current_step != "all_images_selected":
             job.current_step = "all_images_selected"
             db.commit()
             render_queue.enqueue(
