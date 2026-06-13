@@ -25,8 +25,8 @@ app = FastAPI(title="팡이 API")
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 redis_conn = Redis.from_url(REDIS_URL)
-render_queue = Queue("render_queue", connection=redis_conn)
-upload_queue = Queue("upload_queue", connection=redis_conn)
+render_queue = Queue("render_queue", connection=redis_conn, default_timeout=7200)  # I2V 최대 2시간
+upload_queue = Queue("upload_queue", connection=redis_conn, default_timeout=3600)
 
 
 def _slack_client() -> WebClient | None:

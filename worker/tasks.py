@@ -325,7 +325,7 @@ def _enqueue_video(job_id: str, topic: str, category: str, episode_no: int):
     from redis import Redis
     from rq import Queue
     redis_conn = Redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
-    q = Queue("render_queue", connection=redis_conn)
+    q = Queue("render_queue", connection=redis_conn, default_timeout=7200)
     q.enqueue("worker.tasks.produce_video_task", job_id, topic, category, episode_no)
 
 
@@ -364,7 +364,7 @@ def _enqueue_retry(task: str, job_id: str, topic: str, category: str,
     from rq import Queue
     import datetime as dt
     redis_conn = Redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
-    q = Queue("render_queue", connection=redis_conn)
+    q = Queue("render_queue", connection=redis_conn, default_timeout=7200)
     q.enqueue_in(
         dt.timedelta(seconds=delay_sec),
         task,
