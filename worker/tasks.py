@@ -261,8 +261,8 @@ def produce_video_task(job_id: str, topic: str, category: str = "직장", episod
 
 # ── 컷 이미지 재생성 (특정 beat만) ──────────────────────────
 
-def regen_cut_image_task(job_id: str, beat_idx: int):
-    """특정 컷 이미지 후보만 재생성 → Slack 재전송."""
+def regen_cut_image_task(job_id: str, beat_idx: int, edit_prompt: str = ""):
+    """특정 컷 이미지 재생성 → Slack 재전송. edit_prompt 있으면 수정 지시로 생성."""
     try:
         tmp_dir = _tmp_dir(job_id)
         script_path = os.path.join(tmp_dir, "script.json")
@@ -276,15 +276,19 @@ def regen_cut_image_task(job_id: str, beat_idx: int):
         emotion = beat.get("emotion", "")
 
         candidates_dir = os.path.join(tmp_dir, "candidates")
-        n_candidates = int(os.getenv("IMAGE_CANDIDATES", "2"))
 
-        paths = generate_cut_images(beat, beat_idx, candidates_dir, n_candidates=n_candidates)
+        paths = generate_cut_images(
+            beat, beat_idx, candidates_dir,
+            n_candidates=1,
+            edit_prompt=edit_prompt,
+        )
         for _ in paths:
             record_cost("image")
 
         if paths:
             send_image_candidates(job_id, beat_idx, beat_name, emotion, paths, n_beats)
-            print(f"[{job_id}] beat_{beat_idx} 재생성 완료 — 후보 {len(paths)}장 Slack 재전송")
+            label = f"수정({edit_prompt[:20]})" if edit_prompt else "재생성"
+            print(f"[{job_id}] beat_{beat_idx} {label} 완료 → Slack 재전송")
         else:
             print(f"[{job_id}] beat_{beat_idx} 재생성 실패 — FAL_KEY 확인 필요")
     except Exception as e:

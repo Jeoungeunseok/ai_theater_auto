@@ -91,8 +91,9 @@ def generate_background(topic: str, category: str = "일상", output_path: str =
 
 
 def generate_cut_images(beat: dict, beat_idx: int, output_dir: str,
-                        n_candidates: int = 2,
-                        char_image_path: str = None) -> list[str]:
+                        n_candidates: int = 1,
+                        char_image_path: str = None,
+                        edit_prompt: str = "") -> list[str]:
     """beat 1개 → fal.ai 정지 이미지 n_candidates장 생성.
 
     I2V 전 이미지 게이트용. 레퍼런스(body_front.png) + 감정 + 장면 프롬프트로
@@ -115,13 +116,20 @@ def generate_cut_images(beat: dict, beat_idx: int, output_dir: str,
     emotion_desc = _EMOTION_EN.get(emotion, "neutral expression")
     scene_desc = _BEAT_SCENE.get(beat_name, "colorful simple background")
 
-    prompt = (
-        f"팡이(Pangi), an anthropomorphic Wi-Fi signal mascot character. "
-        f"Keep the exact same character design as the reference image — do NOT redesign the character. "
-        f"Expression: {emotion_desc}. "
-        f"Background scene: {scene_desc}. "
-        f"3D cartoon animation style, vertical 9:16 format, character centered in frame."
-    )
+    if edit_prompt:
+        prompt = (
+            f"{edit_prompt}. "
+            f"Keep the exact same Pangi Wi-Fi mascot character from the reference image. "
+            f"3D cartoon style, vertical 9:16 format."
+        )
+    else:
+        prompt = (
+            f"팡이(Pangi), an anthropomorphic Wi-Fi signal mascot character. "
+            f"Keep the exact same character design as the reference image — do NOT redesign the character. "
+            f"Expression: {emotion_desc}. "
+            f"Background scene: {scene_desc}. "
+            f"3D cartoon animation style, vertical 9:16 format, character centered in frame."
+        )
     negative_prompt = "different character, redesign, human, realistic, text, watermark, blurry"
 
     cut_dir = os.path.join(output_dir, f"beat_{beat_idx:02d}")

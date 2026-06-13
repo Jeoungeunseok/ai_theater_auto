@@ -162,6 +162,26 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
             print(f"[Slack /팡이] 잡 생성 완료 — {topic} ({category})")
             return {}
 
+        if callback_id == "edit_image_modal":
+            meta = payload["view"]["private_metadata"].split("|", 3)
+            job_id_m, beat_idx_str, channel_id, message_ts = meta
+            beat_idx = int(beat_idx_str)
+            edit_prompt = (
+                payload["view"]["state"]["values"]
+                .get("edit_block", {})
+                .get("edit_input", {})
+                .get("value", "") or ""
+            )
+            # 기존 메시지 → "수정 중..." 교체
+            n_beats = 6
+            script_path = os.path.join(f"tmp/aitheater/{job_id_m}", "script.json")
+            if os.path.exists(script_path):
+                with open(script_path, encoding="utf-8") as f:
+                    n_beats = len(json.load(f).get("beats", []))
+            update_image_regenerating(channel_id, message_ts, beat_idx, n_beats)
+            render_queue.enqueue("worker.tasks.regen_cut_image_task", job_id_m, beat_idx, edit_prompt)
+            return {}
+
         if callback_id == "reject_reason_modal":
             job_id = payload["view"]["private_metadata"]
             reason = (
@@ -183,8 +203,8 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
     trigger_id = payload.get("trigger_id")
     raw_value = action["value"]
 
-    # select_image_, regenerate_image_ 액션은 value가 "{job_id}|..." 형태
-    if action_id.startswith("select_image_") or action_id.startswith("regenerate_image_"):
+    # select_image_, edit_image_ 액션은 value가 "{job_id}|..." 형태
+    if action_id.startswith("select_image_") or action_id.startswith("edit_image_"):
         job_id = raw_value.split("|", 1)[0]
     else:
         job_id = raw_value
@@ -213,10 +233,10 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
         _open_regen_script_modal(trigger_id, job_id)
         return {"ok": True}
 
-    # ── 이미지 게이트 — 컷별 후보 선택 ───────────────────────
+    # ── 이미지 게이트 — 컷 선택 ───────────────────────────────
     if action_id.startswith("select_image_"):
         # value: "{job_id}|{beat_idx}|{image_path}"
-        parts = action["value"].split("|", 2)
+        parts = raw_value.split("|", 2)
         if len(parts) != 3:
             return {"ok": False, "error": "Invalid select_image value"}
         _, beat_idx_str, image_path = parts
@@ -242,10 +262,6 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
             json.dump(selected, f, ensure_ascii=False)
 
         # 선택 버튼 → '✅ 선택 완료' 메시지로 교체
-        try:
-            c_idx = int(action_id.split("_c", 1)[1])
-        except Exception:
-            c_idx = 0
         beat_info = script.get("beats", [])[beat_idx] if beat_idx < len(script.get("beats", [])) else {}
         update_image_selected(
             channel_id=payload.get("channel", {}).get("id", ""),
@@ -253,7 +269,7 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
             beat_idx=beat_idx,
             beat_name=beat_info.get("beat", f"컷{beat_idx + 1}"),
             emotion=beat_info.get("emotion", ""),
-            candidate_no=c_idx + 1,
+            candidate_no=1,
             n_beats=n_beats,
         )
 
@@ -276,28 +292,12 @@ async def slack_actions(request: Request, db: Session = Depends(get_db)):
 
         return {"ok": True}
 
-    # ── 컷 이미지 재생성 ───────────────────────────────────
-    if action_id.startswith("regenerate_image_"):
-        parts = action["value"].split("|", 1)
-        if len(parts) != 2:
-            return {"ok": False, "error": "Invalid regenerate_image value"}
-        _, beat_idx_str = parts
-        beat_idx = int(beat_idx_str)
-
-        tmp_dir = f"tmp/aitheater/{job_id}"
-        script_path = os.path.join(tmp_dir, "script.json")
-        n_beats = 6  # 기본값
-        if os.path.exists(script_path):
-            with open(script_path, encoding="utf-8") as f:
-                n_beats = len(json.load(f).get("beats", []))
-
-        update_image_regenerating(
-            channel_id=payload.get("channel", {}).get("id", ""),
-            message_ts=payload.get("message", {}).get("ts", ""),
-            beat_idx=beat_idx,
-            n_beats=n_beats,
-        )
-        render_queue.enqueue("worker.tasks.regen_cut_image_task", job_id, beat_idx)
+    # ── 컷 이미지 수정 (프롬프트 입력 모달) ──────────────────
+    if action_id.startswith("edit_image_"):
+        beat_idx = int(action_id.split("_b", 1)[1])
+        channel_id = payload.get("channel", {}).get("id", "")
+        message_ts = payload.get("message", {}).get("ts", "")
+        _open_edit_image_modal(trigger_id, job_id, beat_idx, channel_id, message_ts)
         return {"ok": True}
 
     # ── 최종 영상 게이트 ───────────────────────────────────
@@ -445,6 +445,44 @@ def _open_regen_script_modal(trigger_id: str, job_id: str):
         )
     except SlackApiError as e:
         print(f"[WARN] 재생성 모달 오픈 실패: {e}")
+
+
+def _open_edit_image_modal(trigger_id: str, job_id: str, beat_idx: int,
+                           channel_id: str, message_ts: str):
+    """이미지 수정 지시 입력 모달."""
+    client = _slack_client()
+    if not client or not trigger_id:
+        return
+    try:
+        client.views_open(
+            trigger_id=trigger_id,
+            view={
+                "type": "modal",
+                "callback_id": "edit_image_modal",
+                "private_metadata": f"{job_id}|{beat_idx}|{channel_id}|{message_ts}",
+                "title": {"type": "plain_text", "text": "이미지 수정"},
+                "submit": {"type": "plain_text", "text": "수정"},
+                "close": {"type": "plain_text", "text": "취소"},
+                "blocks": [
+                    {
+                        "type": "input",
+                        "block_id": "edit_block",
+                        "label": {"type": "plain_text", "text": "수정 요청"},
+                        "element": {
+                            "type": "plain_text_input",
+                            "action_id": "edit_input",
+                            "multiline": True,
+                            "placeholder": {
+                                "type": "plain_text",
+                                "text": "예: 배경을 사무실로 바꿔줘, 표정을 더 강하게, 더 밝고 귀엽게...",
+                            },
+                        },
+                    }
+                ],
+            },
+        )
+    except SlackApiError as e:
+        print(f"[WARN] 이미지 수정 모달 오픈 실패: {e}")
 
 
 def _open_reject_modal(trigger_id: str, job_id: str):
