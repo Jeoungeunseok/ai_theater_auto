@@ -1,6 +1,5 @@
 import os
 import base64
-import requests
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -9,24 +8,9 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 _QUALITY = os.getenv("BG_IMAGE_QUALITY", "medium")
 
-# fal.ai Kling 이미지 생성 모델 설정
-#
-# ⭐ 캐릭터 잠금의 핵심: "참고(image_url)" vs "잠금(elements)"
-#
-#   image_url 단일 레퍼런스 = 느슨한 참고 → 팡이 외형이 컷마다 흔들릴 수 있음
-#   elements / 멀티 레퍼런스  = 캐릭터 고정 → 팡이 외형을 실제로 잠금
-#
-# fal.ai 대시보드에서 모델 파라미터 확인 후 .env에서 설정:
-#   PANGI_IMAGE_MODEL     : elements 지원 모델 ID (예: "fal-ai/kling-image/v2-master")
-#   PANGI_IMAGE_USE_ELEMENTS=true : elements 배열 방식 사용 (권장)
-#   PANGI_IMAGE_ELEMENTS_PARAM    : elements 파라미터 이름 (fal.ai 대시보드 확인)
-#                                   예: "elements" / "reference_images" / "subject_references"
-#   PANGI_IMAGE_REF_PARAM         : 단일 이미지 파라미터 이름 (fallback, 기본 "image_url")
-#
-_IMAGE_MODEL = os.getenv("PANGI_IMAGE_MODEL", "fal-ai/kling-image/v2-master")
-_IMAGE_USE_ELEMENTS = os.getenv("PANGI_IMAGE_USE_ELEMENTS", "false").lower() == "true"
-_IMAGE_ELEMENTS_PARAM = os.getenv("PANGI_IMAGE_ELEMENTS_PARAM", "elements")
-_IMAGE_REF_PARAM = os.getenv("PANGI_IMAGE_REF_PARAM", "image_url")
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_EYES_DIR = os.path.join(_BASE_DIR, "assets", "pang", "eyes")
+_BODY_PATH = os.path.join(_BASE_DIR, os.getenv("PANGI_BODY", "assets/pang/base/body_front.png"))
 
 _CATEGORY_STYLE = {
     "직장": "modern office interior, clean minimal illustration, Korean webtoon style",
@@ -61,7 +45,7 @@ _BEAT_SCENE = {
 
 
 def generate_background(topic: str, category: str = "일상", output_path: str = "assets/bg/bg.webp") -> bool:
-    """배경 이미지 1장 생성. 캐릭터 없이 배경만 — 팡이는 퍼펫으로 별도 합성."""
+    """배경 이미지 1장 생성. 캐릭터 없이 배경만."""
     style = _CATEGORY_STYLE.get(category, _CATEGORY_STYLE["일상"])
     prompt = (
         f"Background scene for a Korean short-form video about '{topic}'. "
@@ -90,16 +74,27 @@ def generate_background(topic: str, category: str = "일상", output_path: str =
         return False
 
 
+def _collect_refs(emotion: str, char_image_path: str = None) -> list:
+    """캐릭터 레퍼런스 + 감정 눈 이미지 파일 핸들 목록 반환."""
+    refs = []
+    body = char_image_path or _BODY_PATH
+    if os.path.exists(body):
+        refs.append(open(body, "rb"))
+    eye_path = os.path.join(_EYES_DIR, f"{emotion}.png")
+    if os.path.exists(eye_path):
+        refs.append(open(eye_path, "rb"))
+    return refs
+
+
 def generate_cut_images(beat: dict, beat_idx: int, output_dir: str,
                         n_candidates: int = 1,
                         char_image_path: str = None,
                         edit_prompt: str = "") -> list[str]:
-    """beat 1개 → gpt-image-2로 장면 이미지 생성.
+    """beat 1개 → gpt-image-2 edit 모드로 장면 이미지 생성.
 
-    주제·감정·대사를 기반으로 팡이가 등장하는 장면을 생성한다.
+    캐릭터 레퍼런스(body) + 감정 눈 이미지(eyes)를 함께 전달해
+    팡이의 외형과 표정을 일관되게 유지한다.
     edit_prompt 있으면 수정 지시로 사용.
-
-    Returns: 생성된 이미지 파일 경로 목록.
     """
     beat_name = beat.get("beat", "전개")
     emotion = beat.get("emotion", "평온")
@@ -112,13 +107,14 @@ def generate_cut_images(beat: dict, beat_idx: int, output_dir: str,
         prompt = (
             f"{edit_prompt}. "
             f"Character: Pangi, a cute blue 3D cartoon Wi-Fi signal mascot with antenna ears and big round eyes. "
+            f"Match the eye expression shown in the reference eye image exactly. "
             f"Vertical 9:16 format. No text in image."
         )
     else:
         prompt = (
             f"Korean short-form video scene illustration. "
             f"Character: Pangi, a cute blue 3D cartoon Wi-Fi signal mascot with antenna ears and big round eyes. "
-            f"Expression: {emotion_desc}. "
+            f"Match the eye expression shown in the reference eye image exactly: {emotion_desc}. "
             f"Scene concept: '{dialogue}' — visually show this moment. "
             f"Background: {scene_desc}. "
             f"Key visual emphasis: '{emphasis}'. "
@@ -132,15 +128,29 @@ def generate_cut_images(beat: dict, beat_idx: int, output_dir: str,
     paths = []
     for i in range(n_candidates):
         out_path = os.path.join(cut_dir, f"candidate_{i:02d}.png")
-        print(f"    [이미지] beat_{beat_idx:02d} gpt-image-2 생성 중... ({beat_name}/{emotion})")
+        print(f"    [이미지] beat_{beat_idx:02d} gpt-image-2 edit 생성 중... ({beat_name}/{emotion})")
+        refs = []
         try:
-            response = client.images.generate(
-                model="gpt-image-2",
-                prompt=prompt,
-                n=1,
-                size="1024x1536",
-                quality="medium",
-            )
+            refs = _collect_refs(emotion, char_image_path)
+            if refs:
+                response = client.images.edit(
+                    model="gpt-image-2",
+                    image=refs if len(refs) > 1 else refs[0],
+                    prompt=prompt,
+                    n=1,
+                    size="1024x1536",
+                    quality="medium",
+                )
+            else:
+                # 레퍼런스 이미지 없으면 generate 폴백
+                print(f"    [WARN] beat_{beat_idx:02d} 레퍼런스 없음 — generate 폴백")
+                response = client.images.generate(
+                    model="gpt-image-2",
+                    prompt=prompt,
+                    n=1,
+                    size="1024x1536",
+                    quality="medium",
+                )
             img_bytes = base64.b64decode(response.data[0].b64_json)
             with open(out_path, "wb") as f:
                 f.write(img_bytes)
@@ -148,6 +158,9 @@ def generate_cut_images(beat: dict, beat_idx: int, output_dir: str,
             print(f"    [이미지] beat_{beat_idx:02d} 저장 완료: {out_path}")
         except Exception as e:
             print(f"    [WARN] beat_{beat_idx:02d} candidate {i} 생성 실패: {e}")
+        finally:
+            for ref in refs:
+                ref.close()
 
     return paths
 
