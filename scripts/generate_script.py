@@ -117,22 +117,27 @@ beat 6 "마무리"  (3~5초):  공범 윙크 + 다음 본심 투표 CTA
   "episode_no": <int>,
   "category": "<카테고리>",
   "topic": "<주제>",
+  "scene_setting": "<에피소드 전체 배경 묘사 (영문, 1~2문장) — 모든 beat에서 공유되는 공간·분위기>",
   "beats": [
-    {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 4, "video_prompt": "<Kling 영상 프롬프트 (영문)>"}},
-    {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 3, "video_prompt": "<Kling 영상 프롬프트 (영문)>"}},
-    {{"beat": "전개1",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<Kling 영상 프롬프트 (영문)>"}},
-    {{"beat": "전개2",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<Kling 영상 프롬프트 (영문)>"}},
-    {{"beat": "전개3",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<Kling 영상 프롬프트 (영문)>"}},
-    {{"beat": "마무리",  "emotion": "{OUTRO_EMOTION}", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 5, "video_prompt": "<Kling 영상 프롬프트 (영문)>"}}
+    {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 4, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}},
+    {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 3, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}},
+    {{"beat": "전개1",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}},
+    {{"beat": "전개2",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}},
+    {{"beat": "전개3",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}},
+    {{"beat": "마무리",  "emotion": "{OUTRO_EMOTION}", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 5, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}}
   ],
   "vote_options": ["<다음 주제 후보 A>", "<다음 주제 후보 B>"]
 }}
 
+[scene_setting 작성 규칙]
+- 에피소드 주제와 딱 맞는 배경 공간을 영문으로 구체적으로 묘사
+- 6개 beat 전체에서 공유되는 고정 배경 — 바뀌지 않음
+- 예시(카드깡): "Convenience store card display wall, bright fluorescent lighting, colorful Pokemon card packs neatly arranged on shelves, 3D cartoon style"
+
 [video_prompt 작성 규칙]
-- 반드시 영문으로 작성
-- 해당 beat의 대사·주제와 일치하는 배경·소품·분위기를 구체적으로 묘사
-- 캐릭터 외형 묘사는 제외 (캐릭터는 레퍼런스 이미지로 고정됨)
-- 예시: "Pokemon card packs scattered on table, glowing holographic rare card held up, dramatic backlight, colorful sparkles, vibrant 3D cartoon scene"
+- scene_setting은 이미 자동으로 앞에 붙으므로 beat 고유 동작·반응만 영문으로 작성
+- 캐릭터 외형 묘사 제외 (캐릭터는 레퍼런스 이미지로 고정됨)
+- 예시: "character pointing dramatically at card pack, eyes wide with anticipation"
 meme_ref는 감정 전환이 있는 beat에 선택적으로 추가 가능: {{"beat": "...", ..., "meme_ref": "<포즈·상황 설명>"}}"""
 
 
