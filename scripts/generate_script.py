@@ -119,15 +119,22 @@ beat 6 "마무리"  (3~5초):  공범 윙크 + 다음 본심 투표 CTA
   "topic": "<주제>",
   "scene_setting": "<에피소드 전체 배경 묘사 (영문, 1~2문장) — 모든 beat에서 공유되는 공간·분위기>",
   "beats": [
-    {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 4, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}},
-    {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 3, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}},
-    {{"beat": "전개1",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}},
-    {{"beat": "전개2",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}},
-    {{"beat": "전개3",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}},
-    {{"beat": "마무리",  "emotion": "{OUTRO_EMOTION}", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 5, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>"}}
+    {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 4, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
+    {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 3, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
+    {{"beat": "전개1",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
+    {{"beat": "전개2",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
+    {{"beat": "전개3",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
+    {{"beat": "마무리",  "emotion": "{OUTRO_EMOTION}", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 5, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}}
   ],
   "vote_options": ["<다음 주제 후보 A>", "<다음 주제 후보 B>"]
 }}
+
+[action_hold_sec 작성 규칙]
+- 음성이 끝난 뒤 그 컷을 몇 초 더 유지할지 (시각적 동작 완성용)
+- 기본값 0.15 (음성 끝나면 바로 다음 컷)
+- 단, video_prompt에 "끝까지 진행되어야 의미가 사는 동작"이 있으면 0.6~1.2 사이로 키울 것
+  예) 얼굴이 돌처럼 굳는다, 천천히 무너진다, 폭발한다, 안테나가 점점 커진다 등
+- 동작이 없고 말만 하는 컷이면 0.15 유지
 
 [scene_setting 작성 규칙]
 - 에피소드 주제와 딱 맞는 배경 공간을 영문으로 구체적으로 묘사

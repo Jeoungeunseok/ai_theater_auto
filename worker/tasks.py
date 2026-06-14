@@ -126,7 +126,10 @@ def produce_images_task(job_id: str, topic: str, category: str = "직장", episo
         tts_durations = measure_beat_durations(voice_dir, n_beats)
         for i, beat in enumerate(script["beats"]):
             beat["tts_sec"] = round(tts_durations[i], 3)
-            beat["duration_sec"] = round(tts_durations[i] + 0.4, 3)
+            # 음성 끝난 뒤 유지 시간 — 기본 0.15초, 동작 강조 beat은 GPT가 크게 지정
+            hold = float(beat.get("action_hold_sec", 0.15) or 0.15)
+            hold = max(0.1, min(2.0, hold))  # 안전 범위 클리핑
+            beat["duration_sec"] = round(tts_durations[i] + hold, 3)
         with open(script_path, "w", encoding="utf-8") as f:
             json.dump(script, f, ensure_ascii=False, indent=2)
 

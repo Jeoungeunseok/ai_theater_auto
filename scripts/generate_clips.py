@@ -110,9 +110,12 @@ def _check_key():
         raise ValueError("FAL_KEY 미설정 — fal.ai API 키를 .env에 추가하세요")
 
 
-def _kling_duration(tts_sec: float) -> int:
-    """TTS 길이 + 여유 0.5초, v3 지원 범위 3~15초로 클리핑."""
-    return max(3, min(15, int(tts_sec + 0.5) + 1))
+def _kling_duration(tts_sec: float, hold_sec: float = 0.15) -> int:
+    """클립 길이 = TTS + 동작 유지(hold) + 여유 1초. v3 지원 범위 3~15초 클리핑.
+
+    렌더는 tts+hold로 트림하므로, 클립은 그보다 충분히 길어야 잘림 없음.
+    """
+    return max(3, min(15, int(tts_sec + hold_sec + 0.5) + 1))
 
 
 def _generate_clip(image_url: str, prompt: str, duration_sec: int,
@@ -177,7 +180,8 @@ def generate_beat_clip(beat: dict, output_path: str,
     dialogue     = beat.get("dialogue", "")
     emphasis     = beat.get("emphasis", "")
     video_prompt = beat.get("video_prompt", "")
-    duration     = _kling_duration(tts_sec) if tts_sec is not None else min(15, max(3, int(beat.get("duration_sec", 5))))
+    hold_sec     = max(0.1, min(2.0, float(beat.get("action_hold_sec", 0.15) or 0.15)))
+    duration     = _kling_duration(tts_sec, hold_sec) if tts_sec is not None else min(15, max(3, int(beat.get("duration_sec", 5))))
     full_video_prompt = f"{scene_setting} {video_prompt}".strip() if scene_setting else video_prompt
 
     is_chained = bool(start_image_path and os.path.exists(start_image_path))
