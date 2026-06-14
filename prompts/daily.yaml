@@ -1,6 +1,6 @@
 category: 일상
 extends: pangi_persona
-allowed_modes: [코칭, 유형, 상상현실, 공감폭발]
+allowed_modes: [코칭, 유형, 공감폭발]
 
 tone_additions:
   - 누구나 경험한 소소한 일상의 귀찮음과 눈치를 유쾌하게 대변

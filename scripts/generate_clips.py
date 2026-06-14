@@ -59,10 +59,8 @@ def _build_prompt(beat_name: str, emotion: str,
     motion_desc  = _BEAT_MOTION.get(beat_name, "talking expressively")
 
     if video_prompt:
-        # GPT가 대본 생성 시 작성한 Kling 전용 프롬프트 우선 사용
         return (
-            f"@Element1 character — keep exact same design as reference. "
-            f"Emotion: {emotion_desc}. Motion: {motion_desc}. "
+            f"@Element1 — Emotion: {emotion_desc}. Motion: {motion_desc}. "
             f"{video_prompt}"
         )
 
@@ -74,8 +72,7 @@ def _build_prompt(beat_name: str, emotion: str,
         scene_part += f"Key visual element prominently shown: '{emphasis}'. "
 
     return (
-        f"@Element1 character — keep exact same design as reference. "
-        f"Emotion: {emotion_desc}. Motion: {motion_desc}. "
+        f"@Element1 — Emotion: {emotion_desc}. Motion: {motion_desc}. "
         f"{scene_part}"
         f"Background matches the scene context naturally. "
         f"3D cartoon animation style, vertical 9:16 format, character centered."
@@ -96,7 +93,11 @@ def _kling_duration(tts_sec: float) -> int:
 
 def _generate_clip(image_url: str, prompt: str, duration_sec: int,
                    eye_url: str = None, body_url: str = None) -> str:
-    """fal.ai Kling v3/pro I2V 요청 → 영상 URL 반환."""
+    """fal.ai Kling v3/pro I2V 요청 → 영상 URL 반환.
+
+    eye_url + body_url 둘 다 있을 때만 elements 활성화.
+    elements[0]: 감정(eye) 정면 + 전신(body) 레퍼런스 → @Element1로 캐릭터 고정.
+    """
     arguments = {
         "start_image_url": image_url,
         "prompt": prompt,
@@ -105,13 +106,13 @@ def _generate_clip(image_url: str, prompt: str, duration_sec: int,
         "generate_audio": False,
     }
 
-    # eyes + body 레퍼런스 → elements로 캐릭터 고정
-    if eye_url:
-        element = {"frontal_image_url": eye_url}
-        if body_url:
-            element["reference_image_urls"] = [body_url]
-        arguments["elements"] = [element]
-        arguments["prompt"] = f"@Element1 character. {prompt}"
+    if eye_url and body_url:
+        arguments["elements"] = [
+            {
+                "frontal_image_url": eye_url,
+                "reference_image_urls": [body_url],
+            }
+        ]
 
     handler = fal_client.submit(_FAL_MODEL, arguments=arguments)
     result = handler.get()
@@ -150,15 +151,18 @@ def generate_beat_clip(beat: dict, output_path: str,
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
-    # Option B: eyes/{감정}.png를 시작 프레임으로 직접 사용
+    # Option B: eyes/{감정}.png → start_image_url + elements frontal
+    #           body_front.png → elements reference_image_urls (전신 디자인 고정)
     eye_path = os.path.join(_EYES_DIR, f"{emotion}.png")
-    start_path = eye_path if os.path.exists(eye_path) else char_path
+    has_eye  = os.path.exists(eye_path)
+    has_body = os.path.exists(_CHAR_IMAGE)
+
+    start_path = eye_path if has_eye else char_path
     print(f"    시작 프레임 업로드: {os.path.basename(start_path)}")
     image_url = fal_client.upload_file(start_path)
 
-    # eyes + body → elements로 캐릭터 고정
-    eye_url  = image_url if os.path.exists(eye_path) else None
-    body_url = fal_client.upload_file(_CHAR_IMAGE) if os.path.exists(_CHAR_IMAGE) else None
+    eye_url  = fal_client.upload_file(eye_path)  if has_eye  else None
+    body_url = fal_client.upload_file(_CHAR_IMAGE) if has_body else None
 
     print(f"    fal.ai 제출: [{beat_name}/{emotion}] {duration}초")
     url = _generate_clip(image_url, prompt, duration, eye_url=eye_url, body_url=body_url)
