@@ -136,7 +136,11 @@ beat 4 "마무리" (3~5초):  공범 윙크 + 다음 본심 투표 CTA
 [video_prompt 작성 규칙]
 - scene_setting은 이미 자동으로 앞에 붙으므로 beat 고유 동작·반응만 영문으로 작성
 - 캐릭터 외형 묘사 제외 (캐릭터는 레퍼런스 이미지로 고정됨)
-- 예시: "character pointing dramatically at card pack, eyes wide with anticipation"
+- ⭐ 반드시 카메라 무빙을 한 개 끝에 명시 — 컷이 밋밋하지 않고 다이내믹해짐
+  · 후킹: "slow zoom in" (긴장감 끌어올림)
+  · 전개: "slow push in" / "camera pans left" / "slight dolly in" 중 택1
+  · 마무리: "slow zoom out" (정리·여운)
+- 예시: "character pointing dramatically at card pack, eyes wide with anticipation, slow zoom in"
 meme_ref는 감정 전환이 있는 beat에 선택적으로 추가 가능: {{"beat": "...", ..., "meme_ref": "<포즈·상황 설명>"}}"""
 
 
