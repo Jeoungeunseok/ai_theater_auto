@@ -5,10 +5,10 @@
   hook_type   : beat 1 후킹 패턴 (5종)
   tone        : 전체 개그 톤 (3종)
   hook_emotion: beat 1 감정 (13종 — 자신감 제외)
-  dev_mode    : 중간 3비트 전개 방식 (4종 — 주제의 allowed_modes 안에서만 LRU)
+  dev_mode    : 전개1·2(beat 2·3) 전개 방식 (4종 — 주제의 allowed_modes 안에서만 LRU)
 
 추적 제외:
-  beat 6 마무리 감정 → OUTRO_EMOTION 고정 (브랜드 앵커)
+  beat 4 마무리 감정 → OUTRO_EMOTION 고정 (브랜드 앵커)
 """
 import json
 import os
@@ -24,7 +24,7 @@ HOOK_EMOTIONS = [
     "슬픔", "분노", "무서움", "충격", "심술", "멍함", "과부하", "재부팅",
 ]
 DEV_MODES = ["코칭", "유형", "상상현실", "공감폭발"]
-OUTRO_EMOTION = "자신감"  # beat 6 고정 — 로테이션 대상 아님
+OUTRO_EMOTION = "자신감"  # beat 4(마무리) 고정 — 로테이션 대상 아님
 
 # 트래커가 보관할 최대 이력 수 (가장 큰 풀 크기 = 13)
 _MAX_HISTORY = max(len(HOOK_TYPES), len(COMEDY_TONES), len(HOOK_EMOTIONS), len(DEV_MODES))
@@ -45,10 +45,10 @@ _TONE_DESC = {
 }
 
 _DEV_MODE_DESC = {
-    "코칭":     "팡이 공범 어조로 꼼수·해법 3개를 하나씩 코치",
-    "유형":     "주제 관련 유형·패턴 3개를 하나씩 지목·폭로",
-    "상상현실": "망상·기대 → 현실 충격 → 여운·합리화의 감정 아크",
-    "공감폭발": "'이럴 때 이러지' 순간 포착 ×3, 팡이가 공범으로 편들기",
+    "코칭":     "팡이 공범 어조로 꼼수·해법 2개를 하나씩 코치",
+    "유형":     "주제 관련 유형·패턴 2개를 하나씩 지목·폭로",
+    "상상현실": "망상·기대 → 현실 충격·합리화의 감정 아크",
+    "공감폭발": "'이럴 때 이러지' 순간 포착 ×2, 팡이가 공범으로 편들기",
 }
 
 
@@ -130,8 +130,8 @@ def build_variation_prompt(variation: dict) -> str:
 - 후킹(beat 1) 타입: {ht} — {_HOOK_TYPE_DESC[ht]}
 - 개그 톤 (전체): {tn} — {_TONE_DESC[tn]}
 - beat 1 감정: {available}
-- 전개 모드 (beat 3·4·5): {dm} — {_DEV_MODE_DESC[dm]}
-- beat 6(마무리) 감정: {OUTRO_EMOTION} 고정 (브랜드 앵커 — 변경 금지)
+- 전개 모드 (beat 2·3 = 전개1·2): {dm} — {_DEV_MODE_DESC[dm]}
+- beat 4(마무리) 감정: {OUTRO_EMOTION} 고정 (브랜드 앵커 — 변경 금지)
 
 [meme_ref — 모든 beat에 선택 필드]
 감정 전환이 있는 beat에 우선 배치. 안전 버전만 허용: 포즈·상황·짧은 대사·오리지널 동작 (실제 음원·영상 참조 ✗).

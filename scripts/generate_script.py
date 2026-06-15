@@ -17,27 +17,23 @@ _CATEGORY_FILE = {
     "일상": "daily.yaml",
 }
 
-# 전개 모드별 beat 3·4·5 설명 — 시스템 프롬프트 beat 포맷 섹션에 삽입
+# 전개 모드별 beat 2·3(전개1·2) 설명 — 시스템 프롬프트 beat 포맷 섹션에 삽입
 _DEV_MODE_BEAT_DESC = {
     "코칭": [
         "꼼수·해법 첫 번째 — 팡이 공범 어조로 임팩트 있게 하나만. 독립 완결 문장.",
-        "꼼수·해법 두 번째 — 앞과 자연스럽게 이어지되 독립적 문장.",
-        "꼼수·해법 세 번째 — 반전 또는 핵심 하이라이트. 완결.",
+        "꼼수·해법 두 번째 — 반전 또는 핵심 하이라이트로 마무리. 완결.",
     ],
     "유형": [
         "1번째 유형 지목 — '이런 사람/상황 있잖아' 공범 어조. 임팩트 있게.",
-        "2번째 유형 지목 — 다른 각도, 독립적 문장.",
-        "3번째 유형 — 반전·웃음 포인트. 완결.",
+        "2번째 유형 — 반전·웃음 포인트로 마무리. 완결.",
     ],
     "상상현실": [
         "망상·기대 — 설렘·과장으로 시작. 독립 완결 문장.",
-        "현실 충격 — 앞 beat와 대비, 반전·허당 구조.",
-        "여운·합리화 — 팡이가 공범으로 편들기. 완결.",
+        "현실 충격 + 합리화 — 반전·허당 구조에 팡이가 공범으로 편들며 마무리. 완결.",
     ],
     "공감폭발": [
         "'이럴 때 이러지' 첫 번째 순간 — 팡이가 '나도 그래' 편들며 독립 완결.",
-        "두 번째 공감 순간 — 다른 각도, 독립적 문장.",
-        "세 번째 공감 순간 — 반전 또는 핵심 공감. 완결.",
+        "두 번째 공감 순간 — 반전 또는 핵심 공감으로 마무리. 완결.",
     ],
 }
 
@@ -78,14 +74,12 @@ def _build_system_prompt(persona: dict, variation: dict) -> str:
 
 [사용 가능한 감정] {emotions}
 
-[에피소드 포맷 — 총 30~40초 이내, 6-beat]
-beat 1 "후킹"    (3~5초):  시청자가 멈추게 만드는 도발적 본심 선언 한 줄
-beat 2 "본심수신" (2~3초):  팡이가 본심 주파수 수신 — 안테나 번쩍 멘트
-beat 3 "전개1"  (4~8초):  {bd[0]}
-beat 4 "전개2"  (4~8초):  {bd[1]}
-beat 5 "전개3"  (4~8초):  {bd[2]}
-beat 6 "마무리"  (3~5초):  공범 윙크 + 다음 본심 투표 CTA
-⚠️ 6개 beat 합산 TTS 기준 40초를 초과하지 말 것.
+[에피소드 포맷 — 총 15~22초 이내, 4-beat]
+beat 1 "후킹"   (3~5초):  시청자가 멈추게 만드는 도발적 본심 선언 한 줄
+beat 2 "전개1"  (4~7초):  {bd[0]}
+beat 3 "전개2"  (4~7초):  {bd[1]}
+beat 4 "마무리" (3~5초):  공범 윙크 + 다음 본심 투표 CTA
+⚠️ 4개 beat 합산 TTS 기준 22초를 초과하지 말 것. 짧고 임팩트 있게.
 {variation_block}
 
 ⚠️ 전개1·2·3은 각각 독립된 짧은 문장. 이어서 읽는 연속 대사 금지 — 컷이 따로 나뉘므로.
@@ -112,19 +106,17 @@ beat 6 "마무리"  (3~5초):  공범 윙크 + 다음 본심 투표 CTA
 ❌ "뇌가 불꽃놀이 한다" → 장면이 안 그려짐, 감상적
 ✅ "마지막 장 넘기기 직전 1초, 거기서 멈춰봐" → 행동·순간 명확, 화면이 그려짐
 
-반드시 아래 JSON 형식으로만 응답하세요 (beat는 정확히 6개):
+반드시 아래 JSON 형식으로만 응답하세요 (beat는 정확히 4개):
 {{
   "episode_no": <int>,
   "category": "<카테고리>",
   "topic": "<주제>",
   "scene_setting": "<에피소드 전체 배경 묘사 (영문, 1~2문장) — 모든 beat에서 공유되는 공간·분위기>",
   "beats": [
-    {{"beat": "후킹",    "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 4, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
-    {{"beat": "본심수신","emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 3, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
-    {{"beat": "전개1",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
-    {{"beat": "전개2",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
-    {{"beat": "전개3",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
-    {{"beat": "마무리",  "emotion": "{OUTRO_EMOTION}", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 5, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}}
+    {{"beat": "후킹",   "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 4, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
+    {{"beat": "전개1",  "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
+    {{"beat": "전개2",  "emotion": "<감정>", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 6, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}},
+    {{"beat": "마무리", "emotion": "{OUTRO_EMOTION}", "dialogue": "<대사>", "emphasis": "<핵심 단어>", "duration_sec": 5, "video_prompt": "<beat별 동작·반응 묘사 (영문) — scene_setting 제외>", "action_hold_sec": 0.15}}
   ],
   "vote_options": ["<다음 주제 후보 A>", "<다음 주제 후보 B>"]
 }}
@@ -138,7 +130,7 @@ beat 6 "마무리"  (3~5초):  공범 윙크 + 다음 본심 투표 CTA
 
 [scene_setting 작성 규칙]
 - 에피소드 주제와 딱 맞는 배경 공간을 영문으로 구체적으로 묘사
-- 6개 beat 전체에서 공유되는 고정 배경 — 바뀌지 않음
+- 4개 beat 전체에서 공유되는 고정 배경 — 바뀌지 않음
 - 예시(카드깡): "Convenience store card display wall, bright fluorescent lighting, colorful Pokemon card packs neatly arranged on shelves, 3D cartoon style"
 
 [video_prompt 작성 규칙]

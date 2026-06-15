@@ -18,8 +18,10 @@ _BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _CHAR_IMAGE = os.path.join(_BASE_DIR, os.getenv("PANGI_BODY", "assets/pang/base/body_front.png"))
 _EYES_DIR   = os.path.join(_BASE_DIR, "assets", "pang", "eyes")
 
-# fal.ai Kling I2V 모델 ID
-_FAL_MODEL = "fal-ai/kling-video/v3/pro/image-to-video"
+# fal.ai Kling I2V 모델 ID — KLING_TIER로 standard/pro 토글
+#   standard: $0.084/초 (테스트·기본) / pro: $0.112/초 (런칭·고화질)
+_KLING_TIER = os.getenv("KLING_TIER", "standard").lower()
+_FAL_MODEL = f"fal-ai/kling-video/v3/{_KLING_TIER}/image-to-video"
 
 # ── 감정 → eyes 파일명 (영문) ───────────────────────────
 _EMOTION_FILE = {

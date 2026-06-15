@@ -15,12 +15,16 @@ _DAILY_LIMIT = float(os.getenv("DAILY_COST_LIMIT", "1.0"))
 # v4 §3.5: 에피소드(job)당 재생성 상한 — 리롤 폭주(곧 비용) 방지
 _MAX_REGEN = int(os.getenv("MAX_REGEN_PER_EPISODE", "5"))
 
+# Kling tier별 초당 단가 — KLING_TIER 환경변수와 동기화
+_KLING_TIER = os.getenv("KLING_TIER", "standard").lower()
+_I2V_RATE = {"standard": 0.084, "pro": 0.112}.get(_KLING_TIER, 0.084)
+
 # 추정 단가 (달러/call)
 _COST_PER_CALL = {
     "script": 0.003,    # gpt-4o-mini 약 2000 input + 500 output tokens
     "background": 0.053, # gpt-image-2 medium
     "image": 0.053,     # 컷별 후보 이미지 (gpt-image-2 medium)
-    "i2v": 0.112,       # ⭐ Kling v3/pro — $0.112/초 (초 단위로 곱해서 사용)
+    "i2v": _I2V_RATE,   # ⭐ Kling v3 — standard $0.084 / pro $0.112 (초 단위로 곱해서 사용)
     "thumbnail": 0.053,  # gpt-image-2 medium (1024x1024)
 }
 
