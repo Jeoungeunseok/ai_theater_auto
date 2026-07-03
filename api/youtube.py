@@ -104,9 +104,10 @@ def _build_thumbnail_prompt(topic: str, category: str, hook_line: str) -> str:
 
 
 def _pillow_overlay(img: Image.Image, topic: str) -> Image.Image:
-    """AI 이미지 위에 제목 텍스트 오버레이 — 반투명 하단 그라디언트 바."""
+    """이미지 위에 제목 텍스트 오버레이 — 반투명 하단 그라디언트 바."""
     W, H = 1280, 720
-    img = img.resize((W, H), Image.LANCZOS)
+    if img.size != (W, H):
+        img = img.resize((W, H), Image.LANCZOS)
     draw = ImageDraw.Draw(img, "RGBA")
     font_path = _font_path()
 
@@ -145,6 +146,35 @@ def _pillow_overlay(img: Image.Image, topic: str) -> Image.Image:
     draw.rectangle([0, 0, W, 10], fill=ACCENT)
 
     return img
+
+
+def make_thumbnail_from_frame(frame_path: str, output_path: str, topic: str) -> bool:
+    """start_00.png(9:16) → 16:9 크롭 + 텍스트 오버레이 → 썸네일 저장.
+
+    gpt-image-2 추가 호출 없이 영상 파이프라인에서 이미 생성된
+    배경+팡이 합성 프레임(start_00.png)을 재활용.
+    캐릭터는 하단 62% 영역에 위치하므로 32% 지점부터 크롭하면 얼굴+상체 포함.
+    """
+    try:
+        img = Image.open(frame_path).convert("RGB")
+        W, H = 1280, 720
+        scale = W / img.width
+        scaled_h = int(img.height * scale)
+        img = img.resize((W, scaled_h), Image.LANCZOS)
+        crop_top = min(int(scaled_h * 0.32), scaled_h - H)
+        img = img.crop((0, crop_top, W, crop_top + H))
+    except Exception as e:
+        print(f"[thumb] 프레임 로드 실패 ({e}), Pillow 폴백")
+        img = _pillow_fallback(topic)
+
+    img = _pillow_overlay(img, topic)
+
+    try:
+        img.save(output_path, "JPEG", quality=92)
+        return True
+    except Exception as e:
+        print(f"썸네일 저장 실패: {e}")
+        return False
 
 
 def generate_thumbnail(

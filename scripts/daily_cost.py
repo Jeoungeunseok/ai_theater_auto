@@ -25,7 +25,7 @@ _COST_PER_CALL = {
     "background": 0.053, # gpt-image-2 medium
     "image": 0.053,     # 컷별 후보 이미지 (gpt-image-2 medium)
     "i2v": _I2V_RATE,   # ⭐ Kling v3 — standard $0.084 / pro $0.112 (초 단위로 곱해서 사용)
-    "thumbnail": 0.053,  # gpt-image-2 medium (1024x1024)
+    # "thumbnail": 제거 — start_00.png 재활용으로 추가 API 호출 없음
 }
 
 

@@ -7,7 +7,7 @@ from db.models import Job, JobStatus, Episode
 from scripts.generate_script import generate_pangi_script
 from scripts.generate_clips import generate_all_clips
 from scripts.generate_voice import generate_pangi_voice, measure_beat_durations
-from scripts.generate_image import generate_background
+from scripts.generate_image import generate_background, generate_scene_background
 from scripts.render_short import render_pangi_short
 from scripts.daily_cost import is_queue_paused, record_cost
 from scripts.generate_image import generate_cut_images
@@ -175,10 +175,19 @@ def produce_video_task(job_id: str, topic: str, category: str = "직장", episod
         # 이미지 게이트에서 선택된 이미지 로드 (없으면 body_front.png 폴백)
         selected_images = _load_selected_images(tmp_dir)
 
-        # 1. 배경 이미지 — Kling 클립(선택 이미지)이 전 컷 장면을 담으므로
-        #    FAL_KEY 있으면 배경 별도 생성 불필요. 폴백 렌더(PIL/퍼펫)에서만 생성.
-        bg_path = None
-        if not os.getenv("FAL_KEY"):
+        # 1. 장면 배경 — 시작 프레임 합성용 (검은 시작 화면·배경 흔들림 방지).
+        #    scene_setting 기반 배경 1장 생성 → 첫 컷에 팡이 합성, 이후 체이닝 승계.
+        bg_path = None       # 폴백 렌더(PIL/퍼펫)용
+        scene_bg_path = None # Kling 시작 프레임 합성용
+        scene_setting = script.get("scene_setting", "")
+        if os.getenv("FAL_KEY") and scene_setting:
+            _step(db, job, "generating_background")
+            scene_bg_path = os.path.join(tmp_dir, "scene_bg.png")
+            if generate_scene_background(scene_setting, output_path=scene_bg_path):
+                record_cost("background")
+            else:
+                scene_bg_path = None
+        elif not os.getenv("FAL_KEY"):
             _step(db, job, "generating_background")
             bg_path = f"assets/bg/ep{episode_no:02d}_{category}.webp"
             if not os.path.exists(bg_path):
@@ -193,6 +202,7 @@ def produce_video_task(job_id: str, topic: str, category: str = "직장", episod
                 script, clips_dir,
                 tts_durations=tts_durations,
                 selected_images=selected_images,
+                scene_bg_path=scene_bg_path,
             )
             for secs in clip_seconds:
                 if secs > 0:

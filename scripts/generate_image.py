@@ -74,6 +74,35 @@ def generate_background(topic: str, category: str = "일상", output_path: str =
         return False
 
 
+def generate_scene_background(scene_setting: str, output_path: str = "assets/bg/scene.png") -> bool:
+    """scene_setting(영문) 기반 9:16 배경 1장 생성 — 캐릭터 없이 배경만.
+
+    시작 프레임 합성용 — 팡이를 이 위에 얹어 검은 시작 화면·배경 흔들림 방지.
+    """
+    prompt = (
+        f"{scene_setting}. "
+        "Empty scene background with no characters, no people, no creatures. "
+        "Vertical 9:16 format, 3D cartoon animation style, soft depth of field."
+    )
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    try:
+        response = client.images.generate(
+            model="gpt-image-2",
+            prompt=prompt,
+            size="1024x1536",
+            quality=_QUALITY,
+            n=1,
+        )
+        image_data = base64.b64decode(response.data[0].b64_json)
+        with open(output_path, "wb") as f:
+            f.write(image_data)
+        print(f"장면 배경 생성 완료: {output_path}")
+        return True
+    except Exception as e:
+        print(f"장면 배경 생성 실패: {e}")
+        return False
+
+
 def _collect_refs(emotion: str, char_image_path: str = None) -> list:
     """캐릭터 레퍼런스 + 감정 눈 이미지 파일 핸들 목록 반환."""
     refs = []

@@ -14,6 +14,10 @@ _EYES_DIR  = os.getenv("PANGI_EYES_DIR",   "assets/pang/eyes")
 _BASE_BODY = os.getenv("PANGI_BODY",        "assets/pang/base/body_front.png")
 _SFX_DIR   = os.getenv("PANGI_SFX_DIR",     "assets/sfx")
 
+# 체이닝 컷 워밍업(lead) 초 — generate_clips._WINDUP_SEC와 동기화.
+# 체이닝 beat(0번 제외)는 클립 앞 이만큼을 잘라 대사 시작 = 동작 시작으로 맞춤.
+_WINDUP_SEC = float(os.getenv("PANGI_WINDUP_SEC", "1.0"))
+
 # v4 §2.6(2) 효과음(SFX) 맵 — 비트 타입별 비트 시작점에 자동 삽입.
 # 파일이 존재할 때만 적용(없으면 무음 스킵).
 _SFX_BY_BEAT = {
@@ -46,6 +50,19 @@ _DEFAULT_STYLE = {
 
 
 # ── 카테고리 스타일 로드 ──────────────────────────────────
+
+def _measure_audio(path: str) -> float:
+    """실측 오디오 길이(초) 반환. 파일 없으면 0."""
+    result = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+         "-of", "csv=p=0", path],
+        capture_output=True, text=True,
+    )
+    try:
+        return float(result.stdout.strip())
+    except ValueError:
+        return 0.0
+
 
 def _load_category_cfg(category: str) -> dict:
     filename = _CATEGORY_FILE.get(category)
@@ -291,10 +308,13 @@ def _render_beat_fallback(
 def _render_beat_with_kling(
     clip_path: str, audio_path: str, subtitle: str,
     output_path: str, style: dict = None, duration_sec: int = None,
+    lead_sec: float = 0.0,
 ):
     """
     Kling 생성 클립에 TTS 오디오 교체 + 자막 합성.
     클립이 beat보다 길면 duration_sec 기준으로 트림.
+    lead_sec > 0: 클립 앞 워밍업(전환) 구간을 잘라내 대사 시작 = 동작 시작으로 정렬.
+                  (영상만 seek — 오디오는 TTS 처음부터 그대로)
     v4 §2.6(3): emphasis 단어가 있으면 본 자막 위에 강조색·큰 글씨로 한 줄 더.
     """
     style = style or _DEFAULT_STYLE
@@ -322,8 +342,10 @@ def _render_beat_with_kling(
         vf_parts.append(drawtext)
     vf = ",".join(vf_parts)
 
-    cmd = [
-        "ffmpeg", "-y",
+    cmd = ["ffmpeg", "-y"]
+    if lead_sec and lead_sec > 0:
+        cmd += ["-ss", str(lead_sec)]  # 영상 앞 워밍업 구간 스킵 (clip 입력에만 적용)
+    cmd += [
         "-i", clip_path,    # Kling 영상
         "-i", audio_path,   # TTS 오디오
         "-map", "0:v",      # 영상은 Kling 것 사용
@@ -460,7 +482,10 @@ def render_pangi_short(
         subtitle  = beat.get("dialogue", "")
         emotion   = beat.get("emotion", "평온")
         beat_name = beat.get("beat", "")
-        duration  = beat.get("duration_sec")
+        hold_sec  = max(0.1, min(2.0, float(beat.get("action_hold_sec", 0.15) or 0.15)))
+        # GPT 추정 duration_sec 대신 실측 TTS 길이 + hold + 0.3초 여유로 트림
+        tts_dur   = _measure_audio(audio)
+        duration  = round(tts_dur + hold_sec + 0.3, 3) if tts_dur > 0 else beat.get("duration_sec")
         out       = os.path.join(tmp_dir, f"beat_{i:02d}.mp4")
 
         # Kling 클립이 있으면 최우선 사용
@@ -468,9 +493,14 @@ def render_pangi_short(
         puppet     = _puppet_clip(beat_name, emotion)
 
         if os.path.exists(kling_clip):
-            print(f"  [{beat_name}] Kling 클립 사용")
+            # 체이닝 컷(0번 제외)은 앞 워밍업 구간을 잘라 대사=동작 정렬.
+            # 단, 클립이 lead+duration만큼 충분히 길 때만 적용 (구버전 클립 오트림 방지).
+            clip_len = _measure_audio(kling_clip)
+            lead = _WINDUP_SEC if (i > 0 and clip_len >= duration + _WINDUP_SEC) else 0.0
+            print(f"  [{beat_name}] Kling 클립 사용 "
+                  f"(TTS {tts_dur:.2f}s + hold {hold_sec}s = {duration}s, lead {lead}s)")
             _render_beat_with_kling(kling_clip, audio, subtitle, out,
-                                    style=style, duration_sec=duration)
+                                    style=style, duration_sec=duration, lead_sec=lead)
         elif puppet:
             resolved_bg = bg_path or _black_bg(tmp_dir, category)
             print(f"  [{beat_name}] 퍼펫 클립: {os.path.basename(puppet)}")

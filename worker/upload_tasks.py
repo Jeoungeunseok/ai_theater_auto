@@ -2,8 +2,7 @@ import json
 import os
 from db.database import SessionLocal
 from db.models import Job, JobStatus, Episode
-from api.youtube import upload_to_youtube, generate_thumbnail, build_tags
-from scripts.daily_cost import record_cost
+from api.youtube import upload_to_youtube, make_thumbnail_from_frame, build_tags
 from worker.slack_notifier import send_thumbnail_approval
 
 
@@ -18,14 +17,17 @@ def generate_thumbnail_task(job_id: str):
             return
 
         tmp_dir = os.path.dirname(job.video_path) if job.video_path else f"tmp/aitheater/{job_id}"
-        hooking_line = _load_hooking_line(job.video_path)
         thumbnail_path = os.path.join(tmp_dir, "thumbnail.jpg")
+
+        # start_00.png: 배경+팡이 합성 프레임 (영상 파이프라인에서 이미 생성)
+        frame_path = os.path.join(tmp_dir, "clips", "_frames", "start_00.png")
+        if not os.path.exists(frame_path):
+            frame_path = os.path.join(tmp_dir, "scene_bg.png")  # 폴백: 배경만
 
         job.current_step = "generating_thumbnail"
         db.commit()
 
-        generate_thumbnail(job.topic, thumbnail_path, category=job.category, hook_line=hooking_line)
-        record_cost("thumbnail")
+        make_thumbnail_from_frame(frame_path, thumbnail_path, job.topic)
 
         job.current_step = "pending_thumbnail_approval"
         db.commit()
